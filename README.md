@@ -1,133 +1,114 @@
-# 🍔 Zestora – DevOps & Cloud Architecture
+# 🍕 Zestora — Full-Stack DevOps Project
 
-> A containerised, micro-tier food ordering platform built with **React TypeScript**, **Flask**, and **MongoDB**, deployed on a hardened single-instance **AWS EC2 architecture** with a **$0.00 Free Tier footprint** and automated 10-day lifecycle management.
+> A production-grade food ordering application built with a complete DevOps pipeline on AWS.
 
-🌐 **Live Production Deployment:** [http://54.234.169.116](http://54.234.169.116)  
-📋 **System Architecture Guide:** [SYSTEM_ARCHITECTURE.md](file:///d:/Projects/AWS_Project/SYSTEM_ARCHITECTURE.md)  
-⚙️ **DevOps Deep Dive:** [DEVOPS_ARCHITECTURE.md](file:///d:/Projects/AWS_Project/DEVOPS_ARCHITECTURE.md)  
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
+![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
+![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
+![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
+![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-F46800?style=for-the-badge&logo=grafana&logoColor=white)
+![Trivy](https://img.shields.io/badge/Trivy-1904DA?style=for-the-badge&logo=aqua&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub_Actions-2088FF?style=for-the-badge&logo=github-actions&logoColor=white)
 
 ---
 
-## 🏗️ DevOps & Cloud Architecture
+## 🌐 Live Demo Links
+
+| Service | URL | Credentials |
+|---|---|---|
+| **App** | [http://54.234.169.116](http://54.234.169.116) | — |
+| **Grafana** | [http://54.234.169.116/grafana/](http://54.234.169.116/grafana/) | `admin` / `admin` |
+| **Prometheus** | [http://54.234.169.116/prometheus/graph](http://54.234.169.116/prometheus/graph) | — |
+| **Health API** | [http://54.234.169.116/api/health](http://54.234.169.116/api/health) | — |
+| **GitHub** | [https://github.com/Luffy-44/DevOps_Project](https://github.com/Luffy-44/DevOps_Project) | — |
+| **Jenkins (local)** | [http://localhost:8080](http://localhost:8080) | `admin` / `admin` |
+
+> **Demo promo code:** `AWS20` — applies a 20% discount on any order.
+
+---
+
+## 🏗️ DevOps Architecture
 
 ```mermaid
 flowchart TD
-    subgraph ClientLayer["Edge & Ingress (Public Internet)"]
-        Browser["User Browser / Admin Staff"]
+    DEV["👨‍💻 Developer\nLocal Machine"] -->|git push| GH["🐙 GitHub\nmain branch"]
+
+    GH -->|trigger| GHA["⚙️ GitHub Actions\nCI/CD Pipeline"]
+    GHA -->|Trivy scan| TRIVY["🛡️ Trivy\nSecurity Audit"]
+    TRIVY -->|SSH deploy| EC2
+
+    GH -->|webhook| JENKINS["🔧 Jenkins\n8-Stage Pipeline"]
+    JENKINS -->|build & test| DOCKER_BUILD["🐳 Docker\nMulti-stage Build"]
+    DOCKER_BUILD -->|push image| ECR["📦 AWS ECR\nContainer Registry"]
+    ECR -->|pull & deploy| EC2
+
+    subgraph EC2["☁️ AWS EC2 — Ubuntu 24.04 (54.234.169.116)"]
+        NGINX["🌐 Nginx Reverse Proxy\n:80"]
+        FRONT["⚛️ Frontend\nReact + TypeScript"]
+        BACK["🐍 Backend\nFlask + Gunicorn"]
+        MONGO["🍃 MongoDB 7.0"]
+        PROM["📊 Prometheus\n:9090/prometheus"]
+        GRAF["📈 Grafana\n:3002/grafana"]
+
+        NGINX --> FRONT
+        NGINX --> BACK
+        BACK --> MONGO
+        PROM -->|scrape metrics| BACK
+        PROM -->|scrape metrics| FRONT
+        GRAF -->|query| PROM
     end
 
-    subgraph AWSCloud["AWS EC2 Host (Ubuntu 24.04 LTS | t3.micro | 54.234.169.116)"]
-        subgraph HostOS["Host Resources & Safeguards"]
-            RAM["Physical RAM: 1 GB"]
-            Swap["Swap Space: 2 GB (/swapfile)"]
-            Timer["10-Day Auto-Shutdown Safety Timer"]
-        end
-
-        subgraph DockerBridge["Docker Network (zestora_net - 172.28.0.0/16)"]
-            Frontend["zestora_frontend_prod<br/>(Nginx 1.27 + React SPA)<br/>Host Port 80 -> Container 3000"]
-            Backend["zestora_backend_prod<br/>(Flask + Gunicorn WSGI)<br/>Container Port 5000 (Internal)"]
-            Mongo["zestora_mongo_prod<br/>(MongoDB 7.0 Community)<br/>Container Port 27017 (Internal)"]
-        end
-
-        Storage[("Persistent EBS gp3 Volume<br/>delete_on_termination = true")]
+    subgraph K8S["☸️ Kubernetes (EKS-Ready)"]
+        NS["Namespace: zestora"]
+        FE_DEP["Frontend Deployment\nHPA 2–10 replicas"]
+        BE_DEP["Backend Deployment\nHPA 2–10 replicas"]
+        MONGO_SS["MongoDB StatefulSet"]
+        ING["Ingress Controller"]
+        ING --> FE_DEP
+        ING --> BE_DEP
+        BE_DEP --> MONGO_SS
     end
 
-    Browser -->|HTTP Port 80| Frontend
-    Frontend -->|Static Files / SPA Routing| Frontend
-    Frontend -->|Reverse Proxy /api/*| Backend
-    Backend -->|mongodb://mongo:27017| Mongo
-    Mongo --- Storage
+    subgraph TF["🏗️ Terraform IaC"]
+        VPC["VPC + Subnets"]
+        ALB["Application Load Balancer"]
+        CF["CloudFront CDN"]
+        ECR_TF["ECR Repository"]
+        IAM["IAM Roles + Policies"]
+    end
+
+    EC2 -.->|metrics exported| PROM
+    TF -.->|provisions| EC2
 ```
 
 ---
 
-## 🎯 Key DevOps Features & Engineering Highlights
+## 🛠️ Tech Stack
 
-| Feature | DevOps Implementation | Benefit |
-|---------|-----------------------|---------|
-| **Zero Cost Architecture** | 100% within AWS Free Tier (No NAT GW, No Elastic IP, No ALB) | **$0.00 / month cost** |
-| **Memory Engineering** | 2 GB swap space (`/swapfile`, `vm.swappiness=10`) | Prevents OOM kills during Docker builds |
-| **Self-Destruction Timer** | `shutdown -h +14400` in `ec2-user-data.sh` | Guarantees automatic shutoff after 10 days |
-| **Multi-Stage Builds** | Frontend (`node:20` ➔ `nginx:1.27`), Backend (`python:3.12-slim`) | Tiny image sizes (<35 MB frontend, <180 MB backend) |
-| **Network Isolation** | Private Docker bridge network `zestora_net` | Backend & Mongo are never exposed to the public Internet |
-| **Cache Invalidation** | `Cache-Control: no-cache, no-store, must-revalidate` on `index.html` | Eliminates stale client asset bugs after redeployment |
-| **Health Checks** | Native HTTP health endpoints (`/healthz` and `/api/health`) | Docker automatic restart and container monitoring |
-| **Automated Testing** | 12 automated unit and integration tests | 100% pass rate in CI & production containers |
+### Application Layer
+| Layer | Technology | Version |
+|---|---|---|
+| **Frontend** | React + TypeScript + Vite | React 18 |
+| **Styling** | TailwindCSS + Custom CSS | — |
+| **Routing** | React Router DOM | v6 |
+| **Backend** | Python + Flask + Gunicorn | Python 3.11 |
+| **Database** | MongoDB | 7.0 |
+| **Web Server** | Nginx | 1.27-alpine |
 
----
-
-## 🚀 Quick Start (DevOps Runbook)
-
-### 1. Local Development (Docker Compose)
-Clone the repository and spin up all three microservices in development mode:
-
-```bash
-# Clone the repository
-git clone https://github.com/VenuGopalops/online-food-ordering.git
-cd online-food-ordering
-
-# Copy environment variables
-cp .env.example .env
-
-# Build and start containers in detached mode
-docker compose up --build -d
-
-# Verify container status
-docker compose ps
-```
-
-* **Frontend UI:** `http://localhost:3000`
-* **Backend Health Check:** `http://localhost:5000/api/health`
-* **Seed Database:** `curl -X POST http://localhost:5000/api/seed?force=true`
-
----
-
-### 2. Production EC2 Deployment (Direct Secure SSH)
-To deploy updates directly to the live AWS EC2 server:
-
-```powershell
-# 1. Copy updated source code to EC2 via SCP
-scp -i adm.pem -o StrictHostKeyChecking=no frontend/src/App.tsx frontend/src/App.css ubuntu@54.234.169.116:/home/ubuntu/app/frontend/src/
-
-# 2. Rebuild and launch containers on EC2
-ssh -i adm.pem -o StrictHostKeyChecking=no ubuntu@54.234.169.116 "cd /home/ubuntu/app && sudo docker compose -f docker-compose.prod.yml up -d --build"
-
-# 3. Seed the live database with authentic Tamil cuisine
-ssh -i adm.pem -o StrictHostKeyChecking=no ubuntu@54.234.169.116 "curl -s -X POST 'http://localhost/api/seed?force=true'"
-```
-
----
-
-## 🧪 Automated Testing & Quality Assurance
-
-The backend includes a comprehensive automated test suite testing user authentication, food catalog, order creation, coupon validation, live tracking, reviews, and admin metrics.
-
-### Run Tests Inside the Production Docker Container:
-```bash
-ssh -i adm.pem ubuntu@54.234.169.116 \
-  "sudo docker compose -f /home/ubuntu/app/docker-compose.prod.yml exec backend python -m unittest test_app.py"
-```
-
-```text
-............
-----------------------------------------------------------------------
-Ran 12 tests in 2.054s
-
-OK
-```
-
----
-
-## 💰 AWS Cost Analysis ($0.00 Free Tier Budget)
-
-| AWS Resource | Allocated Tier | Monthly Usage | Cost |
-|--------------|----------------|---------------|------|
-| **EC2 Compute** | `t3.micro` (1 vCPU, 1 GB RAM) | 750 hours (Free Tier) | **$0.00** |
-| **EBS Storage** | 20 GB gp3 (`delete_on_termination=true`) | 30 GB (Free Tier) | **$0.00** |
-| **Elastic IP** | None (uses default public IP) | Bypasses AWS $0.005/hr IPv4 charge | **$0.00** |
-| **Bandwidth** | Internet Egress | < 5 GB (100 GB Free Tier) | **$0.00** |
-| **VPC Infrastructure** | Default AWS VPC | Standard VPC features | **$0.00** |
-| **Total Estimated Cost** | | | **$0.00** |
+### DevOps & Infrastructure Layer
+| Category | Technology | Details |
+|---|---|---|
+| **Containerization** | Docker | Multi-stage builds, `node:20-alpine` + `nginx:1.27-alpine`, `python:3.11-slim` |
+| **Orchestration** | Kubernetes | 7 manifests, HPA (CPU 70% / Memory 80%), Ingress, StatefulSet |
+| **CI/CD** | Jenkins | 8-stage declarative pipeline (Checkout → Build → Test → Trivy Scan → Push ECR → Deploy → Smoke Test → Notify) |
+| **CI/CD** | GitHub Actions | Trivy scan + SSH-based EC2 deployment on every push to `main` |
+| **Security** | Trivy | 0 Critical CVEs — full audit at `reports/trivy-security-audit.md` |
+| **Monitoring** | Prometheus + Grafana | Live dashboards, container metrics, API health checks |
+| **IaC** | Terraform | VPC, ALB, CloudFront, ECR, IAM — modular, state-managed |
+| **Cloud** | AWS | EC2 (t3.micro), ECR, VPC, ALB, CloudFront, IAM |
+| **Auto-sync** | Bash cron | EC2 pulls from GitHub `main` every 60 seconds and redeploys |
 
 ---
 
@@ -135,73 +116,215 @@ OK
 
 ```
 AWS_Project/
-├── SYSTEM_ARCHITECTURE.md        # Comprehensive multi-tier system architecture
-├── DEVOPS_ARCHITECTURE.md        # DevOps, memory management, and cost breakdown
-├── README.md                     # DevOps-centric project documentation
-├── docker-compose.yml            # Local development orchestration
-├── docker-compose.prod.yml       # Hardened production orchestration (port 80, limits)
-├── ec2-user-data.sh              # Cloud-init bootstrap script (swap, docker, 10-day timer)
-├── backend/
-│   ├── app.py                    # Flask REST API engine
-│   ├── test_app.py               # 12 automated unit and integration tests
-│   ├── requirements.txt          # Python dependencies (gunicorn, pymongo, etc.)
-│   └── Dockerfile                # Multi-stage non-root Python runtime
-├── frontend/
+├── frontend/                   # React + TypeScript + Vite SPA
 │   ├── src/
-│   │   ├── App.tsx               # Main React SPA with Tamil catalog, KDS, & live search
-│   │   ├── App.css               # Responsive design, theme styling, animations
-│   │   └── main.tsx              # React entry point
-│   ├── public/images/            # High-resolution dish photos & local fallbacks
-│   ├── nginx.conf                # Nginx proxy config with uncached HTML headers
-│   └── Dockerfile                # Multi-stage Node.js build to Nginx Alpine
-└── scripts/
-    ├── deploy.sh                 # Local container deployment script
-    └── update-live-ec2.sh        # Direct SSH/SCP deployment helper
+│   ├── nginx.conf              # Nginx SPA routing + /api proxy
+│   ├── Dockerfile              # Multi-stage build
+│   └── README.md
+├── backend/                    # Python Flask REST API
+│   ├── app.py
+│   ├── requirements.txt
+│   └── Dockerfile
+├── k8s/                        # Kubernetes manifests (EKS-ready)
+│   ├── namespace.yaml
+│   ├── configmap-secrets.yaml
+│   ├── mongo-statefulset.yaml
+│   ├── backend-deployment.yaml
+│   ├── frontend-deployment.yaml
+│   ├── ingress.yaml
+│   ├── hpa.yaml                # Scales 2–10 replicas on CPU/Memory
+│   └── README.md
+├── terraform/                  # Infrastructure as Code
+│   ├── main.tf
+│   ├── vpc.tf
+│   ├── alb.tf
+│   ├── cloudfront.tf
+│   ├── ecr.tf
+│   ├── iam.tf
+│   ├── variables.tf
+│   └── outputs.tf
+├── monitoring/                 # Prometheus + Grafana
+│   ├── prometheus/prometheus.yml
+│   └── grafana/provisioning/
+│       ├── datasources/datasource.yml
+│       └── dashboards/
+├── jenkins/                    # Jenkins container config
+│   └── docker-compose.jenkins.yml
+├── scripts/                    # Automation scripts
+│   └── sync-github-to-aws.sh  # EC2 auto-sync daemon (runs every 60s)
+├── reports/
+│   └── trivy-security-audit.md # Security audit — 0 Critical CVEs
+├── .github/workflows/
+│   └── deploy.yml              # GitHub Actions CI/CD
+├── docker-compose.yml          # Local development stack
+├── docker-compose.prod.yml     # Production stack (EC2)
+├── Jenkinsfile                 # 8-stage declarative Jenkins pipeline
+├── QUICK_LINKS.md              # 🔗 All live URLs & credentials
+├── PROJECT_REVIEW_GUIDE.md     # 📋 Full review presentation script
+├── DEVOPS_ARCHITECTURE.md      # 🏗️ Detailed architecture diagrams
+└── README.md                   # This file
 ```
 
 ---
 
-## 📡 Core API Reference
+## 🚀 CI/CD Pipeline
 
-| Method | Endpoint | Auth | Description |
-|:-------|:---------|:-----|:------------|
-| `GET` | `/healthz` | No | Edge Nginx health check |
-| `GET` | `/api/health` | No | Backend & MongoDB health check |
-| `GET` | `/api/foods` | No | List food items (supports `?category=`) |
-| `POST` | `/api/seed?force=true` | No | Re-seed catalog with authentic Tamil cuisine |
-| `POST` | `/api/coupons/validate` | No | Validate promo discounts (`AWS20`, `CLOUD50`) |
-| `POST` | `/api/orders` | Yes | Place order (JWT authenticated) |
-| `GET` | `/api/orders/:id/track` | No | 4-step live order tracking timeline |
-| `PATCH`| `/api/orders/:id/status` | No | Advance order status (`preparing`, `delivered`)|
-| `GET` | `/api/admin/stats` | No | Kitchen KDS revenue and order metrics |
-| `POST` | `/api/foods/:id/reviews` | No | Submit 1–5 star customer review |
+### Jenkins — 8-Stage Declarative Pipeline
+
+```
+✅ Stage 1: Checkout          — Clone from GitHub
+✅ Stage 2: Build Images      — Docker multi-stage build
+✅ Stage 3: Unit Tests        — Backend + Frontend tests
+✅ Stage 4: Trivy Scan        — Container vulnerability audit
+✅ Stage 5: Push to ECR       — Tag + push to AWS ECR
+✅ Stage 6: Deploy to EC2     — SSH + docker-compose up
+✅ Stage 7: Smoke Test        — Health endpoint check
+✅ Stage 8: Notify            — Pipeline completion status
+```
+
+### GitHub Actions — Continuous Delivery
+
+Every push to `main` triggers:
+1. **Trivy scan** on the Docker images (blocks on Critical/High CVEs)
+2. **SSH deploy** to EC2 → pulls latest code → `docker-compose -f docker-compose.prod.yml up -d`
 
 ---
 
-## 🛠️ Operational Maintenance Commands
+## 🛡️ Security — Trivy Audit Results
+
+| Severity | Count |
+|---|---|
+| **Critical** | ✅ 0 |
+| **High** | ✅ 0 |
+| **Medium** | 2 (accepted) |
+| **Low** | 5 (informational) |
+
+> Full report: [`reports/trivy-security-audit.md`](./reports/trivy-security-audit.md)
+
+---
+
+## ☸️ Kubernetes (EKS-Ready)
+
+The `k8s/` directory contains 7 production-ready manifests deployable to AWS EKS:
 
 ```bash
-# View live container status
-sudo docker compose -f docker-compose.prod.yml ps
+# Apply all manifests
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/configmap-secrets.yaml
+kubectl apply -f k8s/mongo-statefulset.yaml
+kubectl apply -f k8s/backend-deployment.yaml
+kubectl apply -f k8s/frontend-deployment.yaml
+kubectl apply -f k8s/ingress.yaml
+kubectl apply -f k8s/hpa.yaml
 
-# View real-time resource utilization (CPU / RAM)
-sudo docker stats --no-stream
+# Check HPA scaling
+kubectl get hpa -n zestora
+```
 
-# View real-time application logs
-sudo docker compose -f docker-compose.prod.yml logs -f --tail=100 backend
+HPA auto-scales frontend and backend pods from **2 → 10 replicas** based on:
+- CPU usage > 70%
+- Memory usage > 80%
 
-# Restart individual container
-sudo docker compose -f docker-compose.prod.yml restart backend
+> Full docs: [`k8s/README.md`](./k8s/README.md)
 
-# Access container shell for debugging
-sudo docker compose -f docker-compose.prod.yml exec backend sh
+---
+
+## 🏗️ Terraform — Infrastructure as Code
+
+```bash
+cd terraform/
+terraform init
+terraform plan
+terraform apply
+```
+
+**Modules:**
+- **`vpc.tf`** — Custom VPC, public/private subnets, internet gateway, route tables
+- **`alb.tf`** — Application Load Balancer with target groups and health checks
+- **`cloudfront.tf`** — CloudFront CDN distribution with S3 origin
+- **`ecr.tf`** — ECR repository with lifecycle policies
+- **`iam.tf`** — EC2 instance profile, ECR push/pull policies, least-privilege IAM roles
+
+---
+
+## 📊 Monitoring
+
+### Prometheus
+- Scrapes metrics from all containers every 15 seconds
+- Accessible at: [http://54.234.169.116/prometheus/graph](http://54.234.169.116/prometheus/graph)
+
+### Grafana
+- Pre-configured dashboards for container health, API latency, and system metrics
+- Accessible at: [http://54.234.169.116/grafana/](http://54.234.169.116/grafana/) (`admin`/`admin`)
+
+---
+
+## 💻 Local Development
+
+```bash
+# Clone the repo
+git clone https://github.com/Luffy-44/DevOps_Project.git
+cd DevOps_Project
+
+# Start the full local stack
+docker-compose up --build
+
+# Services:
+# Frontend → http://localhost:3000
+# Backend  → http://localhost:5000
+# MongoDB  → localhost:27017
+# Prometheus → http://localhost:9090
+# Grafana  → http://localhost:3002
 ```
 
 ---
 
-## 🔒 Security Posture
+## ☁️ AWS Infrastructure
 
-- **Non-Root Execution:** Flask backend executes under an unprivileged system user (`appuser`).
-- **Network Isolation:** MongoDB (`27017`) and Flask (`5000`) are accessible solely within the internal Docker bridge network.
-- **HTTP Header Hardening:** Nginx injects `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and `X-XSS-Protection`.
-- **Stateless Tokens:** Client authentication is verified using HMAC-SHA256 signed JSON Web Tokens (JWT).
+| Resource | Details |
+|---|---|
+| **EC2 Instance** | `i-0056df55696b1ba07`, `t3.micro`, Ubuntu 24.04 |
+| **Public IP** | `54.234.169.116` |
+| **ECR** | Private container registry |
+| **VPC** | Custom VPC with public subnets |
+| **ALB** | Application Load Balancer (Terraform provisioned) |
+| **CloudFront** | CDN distribution (Terraform provisioned) |
+| **IAM** | Least-privilege roles for EC2 and ECR |
+
+---
+
+## 🗑️ Teardown
+
+> See [`AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md`](./AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md) for the complete teardown guide.
+
+```bash
+# Stop EC2 containers
+ssh -i ~/adm.pem ubuntu@54.234.169.116 "cd /home/ubuntu/app && docker-compose -f docker-compose.prod.yml down"
+
+# Destroy Terraform resources
+cd terraform && terraform destroy
+```
+
+---
+
+## 📚 Documentation Index
+
+| Document | Description |
+|---|---|
+| [`QUICK_LINKS.md`](./QUICK_LINKS.md) | All live URLs, credentials, and quick commands |
+| [`PROJECT_REVIEW_GUIDE.md`](./PROJECT_REVIEW_GUIDE.md) | Full review presentation script |
+| [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) | Detailed architecture diagrams |
+| [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | System-level architecture |
+| [`k8s/README.md`](./k8s/README.md) | Kubernetes manifests documentation |
+| [`reports/trivy-security-audit.md`](./reports/trivy-security-audit.md) | Trivy security audit results |
+| [`AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md`](./AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md) | AWS resources and teardown |
+
+---
+
+<div align="center">
+
+**Built with ❤️ as a full DevOps showcase project**
+
+*React · Flask · MongoDB · Docker · Kubernetes · Jenkins · Terraform · AWS · Prometheus · Grafana · Trivy*
+
+</div>
