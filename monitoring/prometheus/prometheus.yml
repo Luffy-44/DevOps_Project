@@ -1,0 +1,20 @@
+global:
+  scrape_interval: 10s
+  evaluation_interval: 10s
+
+scrape_configs:
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Scrape Zestora Flask Backend API Metrics
+  - job_name: 'zestora-backend'
+    metrics_path: '/api/metrics'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['backend:5000']
+        labels:
+          app: 'zestora-backend'
+          env: 'production'
+          tier: 'application'

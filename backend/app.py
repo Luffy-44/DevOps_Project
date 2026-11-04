@@ -474,6 +474,53 @@ def health():
     return jsonify({"status": "ok", "db": db_status}), 200
 
 
+# ─── Prometheus Metrics Exporter Endpoint ──────────────────────────────────
+@app.route("/api/metrics", methods=["GET"])
+def prometheus_metrics():
+    """Exports application and system metrics in Prometheus format."""
+    total_foods = foods_col.count_documents({})
+    total_orders = orders_col.count_documents({})
+    active_orders = orders_col.count_documents({"status": {"$in": ["confirmed", "preparing", "out_for_delivery"]}})
+    total_reviews = reviews_col.count_documents({})
+    
+    # Calculate revenue
+    pipeline = [{"$match": {"status": {"$ne": "cancelled"}}}, {"$group": {"_id": None, "total": {"$sum": "$total"}}}]
+    rev_agg = list(orders_col.aggregate(pipeline))
+    revenue = float(rev_agg[0]["total"]) if rev_agg else 0.0
+
+    lines = [
+        "# HELP zestora_up Shows whether the Zestora backend application is healthy",
+        "# TYPE zestora_up gauge",
+        "zestora_up 1",
+        "",
+        "# HELP zestora_foods_total Total count of food items in catalog",
+        "# TYPE zestora_foods_total gauge",
+        f"zestora_foods_total {total_foods}",
+        "",
+        "# HELP zestora_orders_total Total number of orders placed",
+        "# TYPE zestora_orders_total counter",
+        f"zestora_orders_total {total_orders}",
+        "",
+        "# HELP zestora_active_orders Number of orders currently being prepared or delivered",
+        "# TYPE zestora_active_orders gauge",
+        f"zestora_active_orders {active_orders}",
+        "",
+        "# HELP zestora_revenue_total Total revenue collected in INR",
+        "# TYPE zestora_revenue_total counter",
+        f"zestora_revenue_total {revenue:.2f}",
+        "",
+        "# HELP zestora_reviews_total Total customer reviews submitted",
+        "# TYPE zestora_reviews_total counter",
+        f"zestora_reviews_total {total_reviews}",
+        "",
+        "# HELP zestora_app_info Application build and version metadata",
+        "# TYPE zestora_app_info gauge",
+        'zestora_app_info{version="2.0.0",env="production",cloud="aws"} 1',
+    ]
+
+    return "\n".join(lines) + "\n", 200, {"Content-Type": "text/plain; version=0.0.4; charset=utf-8"}
+
+
 # ─── Seed helper (development) ────────────────────────────────────────────────
 
 @app.route("/api/seed", methods=["POST"])

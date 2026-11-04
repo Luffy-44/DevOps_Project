@@ -1,0 +1,32 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Zestora – Standalone Jenkins Automation Controller (Docker Compose)
+#  Runs Jenkins LTS with Docker-in-Docker socket mounting for CI/CD builds
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: '3.8'
+
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: zestora_jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Mount Docker socket so Jenkins can build & push container images
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - JAVA_OPTS=-Djenkins.install.runSetupWizard=true
+    networks:
+      - jenkins_net
+
+volumes:
+  jenkins_home:
+    driver: local
+
+networks:
+  jenkins_net:
+    driver: bridge

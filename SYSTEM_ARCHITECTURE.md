@@ -231,3 +231,4 @@ For production growth beyond a single instance:
 - **Application Tier:** Scale Flask horizontally across an EC2 Auto Scaling Group behind an AWS Application Load Balancer (ALB).
 - **Database Tier:** Migrate MongoDB to **Amazon DocumentDB** or **MongoDB Atlas** with multi-AZ replication.
 - **Media Delivery:** Distribute static assets and meal photography via **Amazon CloudFront CDN** backed by an **Amazon S3** bucket.
+

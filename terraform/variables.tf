@@ -16,10 +16,28 @@ variable "environment" {
   default     = "production"
 }
 
-variable "instance_type" {
-  description = "EC2 instance type (t2.micro is 100% Free Tier eligible)"
+variable "vpc_cidr" {
+  description = "CIDR block for the custom VPC"
   type        = string
-  default     = "t2.micro"
+  default     = "10.0.0.0/16"
+}
+
+variable "public_subnet_1_cidr" {
+  description = "CIDR block for Public Subnet 1 (AZ a)"
+  type        = string
+  default     = "10.0.1.0/24"
+}
+
+variable "public_subnet_2_cidr" {
+  description = "CIDR block for Public Subnet 2 (AZ b)"
+  type        = string
+  default     = "10.0.2.0/24"
+}
+
+variable "instance_type" {
+  description = "EC2 instance type (t3.micro / t2.micro is Free Tier eligible)"
+  type        = string
+  default     = "t3.micro"
 }
 
 variable "ssh_key_name" {
@@ -39,4 +57,3 @@ variable "root_volume_size" {
   type        = number
   default     = 20
 }
-
