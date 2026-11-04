@@ -1,0 +1,60 @@
+name: CI/CD Pipeline - Test, Scan & Deploy to AWS EC2
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: DevSecOps Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+  deploy-to-aws:
+    name: Continuous Deployment to AWS EC2
+    needs: security-audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to AWS EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script_stop: true
+          script: |
+            echo "=========================================="
+            echo "🚀 Starting Automated Deployment on AWS EC2"
+            echo "=========================================="
+            cd /home/ubuntu/app
+
+            echo "📥 Pulling latest changes from GitHub..."
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "🐳 Rebuilding and updating Docker containers..."
+            docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+
+            echo "🧹 Cleaning up dangling images..."
+            docker image prune -f
+
+            echo "🔍 Verifying running containers..."
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+            echo "✅ Deployment completed successfully!"
