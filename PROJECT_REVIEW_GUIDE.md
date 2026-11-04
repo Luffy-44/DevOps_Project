@@ -24,7 +24,8 @@
 ```mermaid
 flowchart TD
     subgraph SCM["1. Source Control & Automation"]
-        GitRepo["Git Repository"]
+        GitRepo["Git Repository (GitHub: Luffy-44/DevOps_Project)"]
+        GHActions["GitHub Actions CI/CD (.github/workflows/deploy.yml)"]
         Jenkins["Jenkins Automation Server (Jenkinsfile)"]
     end
 
@@ -155,7 +156,17 @@ flowchart TD
 2. Point out that images run as non-root user `appuser` and have zero critical vulnerabilities.
 3. Show the [scripts/run-trivy-scan.sh](file:///d:/Projects/AWS_Project/scripts/run-trivy-scan.sh) script.
 
-### Step 4: Show Terraform Infrastructure Code
+### Step 4: Show GitHub Continuous Deployment (CD to AWS)
+1. Open **[https://github.com/Luffy-44/DevOps_Project](https://github.com/Luffy-44/DevOps_Project)**.
+2. Show the **`.github/workflows/deploy.yml`** workflow and the live deployment daemon:
+   - On every `git push` to `main`, GitHub Actions triggers automated security scanning.
+   - The AWS EC2 instance is connected to GitHub with continuous synchronization: any code change pushed to `main` is automatically pulled, Docker containers are rebuilt, and zero-downtime rolling deployment is executed within 60 seconds!
+3. Open the terminal and show the live deployment log:
+   ```bash
+   ssh -i adm.pem ubuntu@54.234.169.116 "cat /var/log/zestora-deploy.log"
+   ```
+
+### Step 5: Show Terraform Infrastructure Code
 1. Open the [terraform/](file:///d:/Projects/AWS_Project/terraform/) directory.
 2. Walk the professors through:
    - `vpc.tf` (Multi-AZ subnets)
@@ -164,7 +175,7 @@ flowchart TD
    - `ecr.tf` (Elastic Container Registry)
    - `iam.tf` (Instance profile and policies)
 
-### Step 5: Show Jenkins CI/CD Pipeline
+### Step 6: Show Jenkins CI/CD Pipeline
 1. Open the [Jenkinsfile](file:///d:/Projects/AWS_Project/Jenkinsfile).
 2. Explain the 8 declarative pipeline stages: Checkout ➔ Unit Tests ➔ Trivy Scan ➔ Multi-Stage Build ➔ ECR Push ➔ Terraform Validate ➔ EC2 Deploy ➔ Health Smoke Test.
 
