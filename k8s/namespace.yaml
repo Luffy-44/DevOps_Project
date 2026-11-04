@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: zestora
+  labels:
+    app.kubernetes.io/name: zestora
+    app.kubernetes.io/part-of: zestora-devops
+    environment: production

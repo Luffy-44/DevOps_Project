@@ -69,6 +69,7 @@ flowchart LR
 - 🏗️ **[DEVOPS_ARCHITECTURE.md](file:///D:/Projects/AWS_Project/DEVOPS_ARCHITECTURE.md)**: End-to-end cloud and security architecture diagrams.
 - 🛡️ **[reports/trivy-security-audit.md](file:///D:/Projects/AWS_Project/reports/trivy-security-audit.md)**: DevSecOps vulnerability scan results.
 - ☁️ **[terraform/](file:///D:/Projects/AWS_Project/terraform/)**: Terraform modules for VPC, ALB, CloudFront, IAM, and ECR.
+- ☸️ **[k8s/](file:///D:/Projects/AWS_Project/k8s/)**: Kubernetes manifests (Deployments, StatefulSet, Ingress, HPA autoscaler).
 - ⚙️ **[Jenkinsfile](file:///D:/Projects/AWS_Project/Jenkinsfile)**: Declarative CI/CD pipeline code.
 - 🛑 **[AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md](file:///D:/Projects/AWS_Project/AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md)**: Zero-cost 24-hour AWS termination guide.
 
@@ -100,3 +101,4 @@ curl.exe -s http://54.234.169.116/api/health
    ```powershell
    docker compose -f D:\Projects\AWS_Project\jenkins\docker-compose.jenkins.yml down
    ```
+
