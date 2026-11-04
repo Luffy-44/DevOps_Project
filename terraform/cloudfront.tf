@@ -75,3 +75,4 @@ resource "aws_cloudfront_distribution" "app_cdn" {
     Environment = var.environment
   }
 }
+

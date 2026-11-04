@@ -74,3 +74,4 @@ chmod +x scripts/run-trivy-scan.sh && ./scripts/run-trivy-scan.sh
 # On Windows PowerShell:
 .\scripts\run-trivy-scan.ps1
 ```
+

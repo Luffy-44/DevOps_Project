@@ -92,3 +92,4 @@ After terminating tomorrow, spend 60 seconds verifying these 4 sections in the A
 - [ ] **EBS Volumes:** Shows `0` active volumes.
 - [ ] **Load Balancers:** Empty list (no active ALBs).
 - [ ] **Elastic IPs:** Shows `0` allocated IPs (avoids the $0.005/hr IPv4 charge).
+

@@ -26,3 +26,4 @@ docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:lates
 Write-Host "`n========================================================" -ForegroundColor Green
 Write-Host "  ✅ TRIVY SECURITY SCAN FINISHED SUCCESSFULLY!" -ForegroundColor Green
 Write-Host "========================================================" -ForegroundColor Green
+

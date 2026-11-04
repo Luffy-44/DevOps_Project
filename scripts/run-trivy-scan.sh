@@ -56,3 +56,4 @@ echo "========================================================"
 echo "  🎉 TRIVY SCAN COMPLETE - ALL REPORTS GENERATED!"
 echo "  Reports location: ${REPORT_DIR}/"
 echo "========================================================"
+
