@@ -33,6 +33,7 @@ frontend/dist-ssr/
 # IDE / OS
 .DS_Store
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.swp
