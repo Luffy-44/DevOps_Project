@@ -37,3 +37,4 @@ kubectl get hpa -n zestora
 ```bash
 kubectl describe hpa zestora-backend-hpa -n zestora
 ```
+

@@ -64,3 +64,4 @@ spec:
       name: http
   selector:
     app: zestora-frontend
+
