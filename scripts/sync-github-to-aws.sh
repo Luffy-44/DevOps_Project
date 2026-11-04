@@ -35,3 +35,4 @@ if [ "${LOCAL_HASH}" != "${REMOTE_HASH}" ]; then
 
     echo "✅ [$(date '+%Y-%m-%d %H:%M:%S UTC')] Deployment successful!" | tee -a "${LOG_FILE}"
 fi
+
