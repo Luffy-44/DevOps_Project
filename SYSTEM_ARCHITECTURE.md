@@ -1,206 +1,293 @@
-# 🏛️ Zestora – System Architecture
+# 🏛️ Zestora — System Architecture
 
-This document provides a detailed architectural breakdown of the **Zestora Online Food Ordering System**, describing its design principles, component tiers, communication protocols, database schema, and security architecture.
+> A structured, visual breakdown of every layer of the Zestora food ordering platform — from the browser to the database, and from local Docker to AWS cloud.
 
 ---
 
-## 1. High-Level Architecture Overview
+## 📐 Table of Contents
 
-Zestora is engineered as a decoupled, multi-tier web application containerized using Docker and deployed to a hardened Linux host on AWS EC2.
+1. [Architecture at a Glance](#1-architecture-at-a-glance)
+2. [The 4 Tiers Explained](#2-the-4-tiers-explained)
+   - [Client Tier — React SPA](#21-client-tier--react-spa)
+   - [Edge Tier — Nginx](#22-edge-tier--nginx)
+   - [Application Tier — Flask API](#23-application-tier--flask-api)
+   - [Persistence Tier — MongoDB](#24-persistence-tier--mongodb)
+3. [Request Flow — Step by Step](#3-request-flow--step-by-step)
+4. [Database Schema](#4-database-schema)
+5. [Security Architecture](#5-security-architecture)
+6. [Container Network Map](#6-container-network-map)
+7. [Scalability Roadmap](#7-scalability-roadmap)
+
+---
+
+## 1. Architecture at a Glance
+
+Zestora is a **4-tier containerized web application** running on AWS EC2. Each tier lives in its own Docker container, communicating over a private internal Docker network (`zestora_net`). Only Nginx is exposed to the public internet.
 
 ```mermaid
 flowchart TD
-    subgraph ClientTier["Client Tier (Browser)"]
-        User["End User / Customer"]
-        Admin["Kitchen Admin / Staff"]
+    USER(["👤 Customer\n(Browser)"])
+    ADMIN(["👨‍🍳 Kitchen Staff\n(Browser)"])
+
+    subgraph EDGE["🌐 Edge Tier — Public (Port 80)"]
+        NGINX["Nginx 1.27\nReverse Proxy + Static Server"]
     end
 
-    subgraph EdgeTier["Edge & Web Server Tier"]
-        Nginx["Nginx Reverse Proxy & Static Host (Port 80)"]
+    subgraph APP["⚙️ Application Tier — Private Docker Network"]
+        GUNICORN["Gunicorn\nWSGI Server"]
+        FLASK["Flask REST API\n(Port 5000)"]
+        COUPON["🎟️ Coupon Engine\nAWS20 / CLOUD50"]
+        TRACKER["📍 Order Tracker\n4-step live status"]
+        REVIEWS["⭐ Reviews Module\n1–5 star ratings"]
     end
 
-    subgraph AppTier["Application Tier (Private Docker Network)"]
-        Gunicorn["Gunicorn WSGI Server"]
-        Flask["Flask REST API Engine (Port 5000)"]
-        CouponEngine["Coupons Engine (AWS20, CLOUD50)"]
-        TrackerEngine["4-Step Live Order Tracker"]
-        ReviewEngine["Ratings & Reviews Module"]
+    subgraph DB["🗄️ Persistence Tier — Private Docker Network"]
+        MONGO["MongoDB 7.0\n(Port 27017)"]
+        VOL[("💾 Docker Volume\nmongo_data")]
     end
 
-    subgraph PersistenceTier["Persistence Tier (Private Docker Network)"]
-        Mongo["MongoDB 7.0 (Port 27017)"]
-        MongoVol[("Persistent Docker Volume (mongo_data)")]
+    subgraph MON["📊 Monitoring Tier"]
+        PROM["Prometheus\n(:9090)"]
+        GRAF["Grafana\n(:3002)"]
     end
 
-    User -->|HTTP / SPA Navigation| Nginx
-    Admin -->|Kitchen KDS / Dashboard| Nginx
-    Nginx -->|Static Assets JS, CSS, Media| Nginx
-    Nginx -->|Reverse Proxy /api/*| Gunicorn
-    Gunicorn --> Flask
-    Flask --> CouponEngine
-    Flask --> TrackerEngine
-    Flask --> ReviewEngine
-    Flask -->|PyMongo Connection| Mongo
-    Mongo --- MongoVol
+    USER -->|"HTTP requests"| NGINX
+    ADMIN -->|"KDS Dashboard"| NGINX
+    NGINX -->|"Static files (JS/CSS)"| NGINX
+    NGINX -->|"Proxy /api/*"| GUNICORN
+    GUNICORN --> FLASK
+    FLASK --> COUPON
+    FLASK --> TRACKER
+    FLASK --> REVIEWS
+    FLASK -->|"PyMongo"| MONGO
+    MONGO --- VOL
+    PROM -->|"scrape metrics"| FLASK
+    GRAF -->|"query"| PROM
 ```
 
 ---
 
-## 2. Tier-by-Tier Component Specifications
-
-### 2.1. Client Tier (Frontend SPA)
-- **Framework & Language:** React 18 with TypeScript.
-- **Build Tooling:** Vite 8.3 with `@vitejs/plugin-react` producing an optimized production bundle (`dist/`).
-- **State Architecture:**
-  - Local reactive state via React hooks (`useState`, `useEffect`, `useMemo`, `useCallback`).
-  - Optimistic UI updates for cart items, search filtering, and coupon calculations.
-- **User Experience Modules:**
-  - **Instant Live Search:** Debounced auto-complete dropdown offering real-time matching across dish names, categories, descriptions, and tags with 1-click `+ Add` actions.
-  - **Tamil & Indian Cuisine Catalog:** Categorized catalog featuring authentic Tamil Nadu delicacies (Ambur Biryani, Madurai Bun Parotta, Kothu Parotta, etc.).
-  - **Promo Engine Selector:** Instant application of coupon codes (`AWS20`, `CLOUD50`, `FREEDEL`) with real-time subtotal re-calculation.
-  - **Live Order Timeline Stepper:** 4-step progress tracker (Confirmed ➔ Kitchen Preparing ➔ Out for Delivery ➔ Delivered) with simulated progression.
-  - **Kitchen Display System (KDS):** Dedicated staff dashboard for tracking incoming tickets, viewing revenue metrics, and updating fulfillment states.
-  - **Customer Reviews Modal:** Interactive 1–5 star rating and feedback submission.
+## 2. The 4 Tiers Explained
 
 ---
 
-### 2.2. Edge & Web Server Tier (Nginx)
-- **Image:** `nginx:1.27-alpine` (lightweight production image, ~25MB).
-- **Responsibilities:**
-  1. **Static Content Delivery:** Serves pre-compiled HTML, JS chunks, CSS bundles, and image assets.
-  2. **Client-Side Routing Fallback:** `try_files $uri $uri/ /index.html` enables seamless React Router / SPA navigation.
-  3. **Reverse Proxying:** Forwards all `/api/*` HTTP calls directly to the internal backend container (`http://backend:5000`).
-  4. **Cache Invalidation:** Issues strict `Cache-Control: no-cache, no-store, must-revalidate` headers for `index.html` to prevent stale client bundles after new deployments.
-  5. **Static Asset Caching:** 1-year immutable caching for fingerprinted assets (`.js`, `.css`, images).
-  6. **Security Headers:** Enforces `X-Frame-Options: SAMEORIGIN`, `X-Content-Type-Options: nosniff`, and `X-XSS-Protection`.
+### 2.1 Client Tier — React SPA
+
+> What the user sees and interacts with in their browser.
+
+| Property | Detail |
+|---|---|
+| **Framework** | React 18 + TypeScript |
+| **Build Tool** | Vite 5 (outputs optimized `dist/` bundle) |
+| **Routing** | React Router DOM v6 (client-side, no page reloads) |
+| **Styling** | TailwindCSS + custom CSS |
+| **State** | React hooks — `useState`, `useEffect`, `useMemo`, `useCallback` |
+
+**Key Features:**
+
+| Feature | How it works |
+|---|---|
+| 🔍 **Instant Search** | Debounced input filters dishes by name, category, description, and tag in real-time |
+| 🛒 **Cart Management** | Optimistic UI updates — no page reload needed when adding/removing items |
+| 🎟️ **Promo Codes** | Enter `AWS20` → 20% off applied instantly with real-time subtotal recalculation |
+| 📍 **Order Tracker** | 4-step progress bar: `Confirmed → Kitchen Preparing → Out for Delivery → Delivered` |
+| 👨‍🍳 **Kitchen Dashboard (KDS)** | Staff view: incoming tickets, revenue metrics, fulfillment state updates |
+| ⭐ **Reviews** | 1–5 star rating modal per dish, submitted to the backend API |
 
 ---
 
-### 2.3. Application Tier (Backend API)
-- **Framework & Language:** Python 3.12 with Flask.
-- **WSGI Server:** Gunicorn with multi-threaded worker configuration.
-- **API Architecture:** RESTful JSON endpoints following standard HTTP status codes:
-  - `200 OK`: Successful retrieval or idempotent update.
-  - `201 Created`: Successful resource creation (orders, reviews).
-  - `400 Bad Request`: Payload validation failures or invalid coupon codes.
-  - `401 Unauthorized`: Missing or invalid JWT credentials.
-  - `404 Not Found`: Non-existent order or food ID.
-- **Authentication & Authorization:**
-  - Stateless JSON Web Tokens (JWT) signed with HMAC-SHA256.
-  - Passwords hashed using `werkzeug.security` (`scrypt`/`pbkdf2:sha256`).
-- **Resilience:**
-  - Automatic MongoDB connection retries with exponential backoff.
-  - Graceful degradation when external restaurant APIs are unreachable.
+### 2.2 Edge Tier — Nginx
+
+> The gatekeeper. All public internet traffic hits Nginx first.
+
+| Property | Detail |
+|---|---|
+| **Image** | `nginx:1.27-alpine` (~25 MB) |
+| **Port** | `80` (public) |
+| **Config file** | `frontend/nginx.conf` |
+
+**Responsibilities:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                       NGINX ROUTER                       │
+│                                                         │
+│   GET /               → serve dist/index.html           │
+│   GET /assets/*       → serve JS/CSS (1-year cache)     │
+│   GET /api/*          → proxy → backend:5000            │
+│   GET /prometheus/*   → proxy → prometheus:9090         │
+│   GET /grafana/*      → proxy → grafana:3002            │
+│   Any unknown route   → fallback to index.html (SPA)    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Security headers Nginx adds to every response:**
+```nginx
+X-Frame-Options: SAMEORIGIN
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 1; mode=block
+Referrer-Policy: strict-origin-when-cross-origin
+Cache-Control: no-cache (for index.html only)
+```
 
 ---
 
-### 2.4. Persistence Tier (MongoDB)
-- **Engine:** MongoDB 7.0 Community Edition.
-- **Storage Strategy:** Persistent Docker named volume `mongo_data` backed by an AWS gp3 EBS volume.
-- **Isolation:** Port 27017 is bound strictly to the internal Docker bridge network (`zestora_net`); it is **never** exposed to the public Internet or host network.
+### 2.3 Application Tier — Flask API
+
+> The brain. Handles all business logic, validation, and database operations.
+
+| Property | Detail |
+|---|---|
+| **Language** | Python 3.11 |
+| **Framework** | Flask |
+| **WSGI Server** | Gunicorn (multi-threaded workers) |
+| **Port** | `5000` (internal only — never exposed publicly) |
+| **Auth** | Stateless JWT (HMAC-SHA256), passwords hashed with `scrypt` |
+
+**API Endpoints:**
+
+| Method | Endpoint | Description | Response |
+|---|---|---|---|
+| `GET` | `/api/health` | Service health check | `{"status":"ok","db":"ok"}` |
+| `GET` | `/api/foods` | Fetch all menu items | `200 OK` — JSON array |
+| `POST` | `/api/orders` | Place a new order | `201 Created` — order ID + status |
+| `GET` | `/api/orders/:id/track` | Live order status | `200 OK` — steps + ETA |
+| `POST` | `/api/coupons/validate` | Validate promo code | `200 OK` — discount amount |
+| `POST` | `/api/reviews` | Submit a food review | `201 Created` |
+
+**HTTP Status Code Convention:**
+
+| Code | Meaning |
+|---|---|
+| `200` | Successful retrieval or update |
+| `201` | Resource created (order, review) |
+| `400` | Bad request — validation failure or invalid coupon |
+| `401` | Unauthorized — missing or invalid JWT |
+| `404` | Not found — unknown order ID or food item |
 
 ---
 
-## 3. Data Flow & Sequence Diagram
+### 2.4 Persistence Tier — MongoDB
+
+> The data store. Completely hidden from the public internet.
+
+| Property | Detail |
+|---|---|
+| **Engine** | MongoDB 7.0 Community |
+| **Port** | `27017` (internal Docker network only) |
+| **Storage** | Docker named volume `mongo_data` (backed by EBS gp3 on EC2) |
+| **Access** | Only reachable by the Flask backend within `zestora_net` |
+| **Collections** | `users`, `foods`, `orders`, `reviews` |
+
+> ⚠️ Port 27017 is **never** exposed to the host or the public internet. It is bound strictly to the internal Docker bridge network.
+
+---
+
+## 3. Request Flow — Step by Step
+
+The following sequence covers the full customer journey from landing on the site to tracking their order.
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Customer (Browser)
-    participant Nginx as Nginx (Port 80)
-    participant Flask as Flask Backend (Port 5000)
-    participant Mongo as MongoDB (Port 27017)
+    actor User as 👤 Customer (Browser)
+    participant Nginx as 🌐 Nginx (Port 80)
+    participant Flask as ⚙️ Flask (Port 5000)
+    participant Mongo as 🗄️ MongoDB (Port 27017)
 
-    Note over User,Nginx: 1. Food Discovery & Search
+    Note over User,Nginx: Step 1 — Page Load
+    User->>Nginx: GET /
+    Nginx-->>User: 200 OK (index.html + JS bundle)
+
+    Note over User,Mongo: Step 2 — Browse Menu
     User->>Nginx: GET /api/foods
     Nginx->>Flask: Proxy GET /api/foods
     Flask->>Mongo: foods_col.find({})
-    Mongo-->>Flask: List of Tamil & International Dishes
+    Mongo-->>Flask: Array of dishes (Tamil & International)
     Flask-->>Nginx: 200 OK (JSON)
-    Nginx-->>User: Render menu & live search results
+    Nginx-->>User: Render food catalog + search bar
 
-    Note over User,Flask: 2. Checkout & Promo Validation
+    Note over User,Flask: Step 3 — Apply Promo Code
     User->>Nginx: POST /api/coupons/validate { code: "AWS20", subtotal: 500 }
-    Nginx->>Flask: Proxy POST /api/coupons/validate
+    Nginx->>Flask: Proxy POST
     Flask-->>Nginx: 200 OK { valid: true, discount: 100, final_total: 400 }
-    Nginx-->>User: Update cart drawer discount pill
+    Nginx-->>User: Cart updates — ₹100 discount applied ✅
 
-    Note over User,Mongo: 3. Order Placement & Tracking
-    User->>Nginx: POST /api/orders (Items, Address, PaymentMethod)
-    Nginx->>Flask: Proxy POST /api/orders
+    Note over User,Mongo: Step 4 — Place Order
+    User->>Nginx: POST /api/orders { items, address, payment_method }
+    Nginx->>Flask: Proxy POST
     Flask->>Mongo: orders_col.insert_one(order_doc)
-    Mongo-->>Flask: Inserted ObjectId
-    Flask-->>Nginx: 201 Created { order_id, status: "confirmed" }
-    Nginx-->>User: Display 4-step live order tracker
+    Mongo-->>Flask: ObjectId assigned
+    Flask-->>Nginx: 201 Created { order_id, status: "confirmed", eta: 35 }
+    Nginx-->>User: 4-step order tracker appears 📍
 
-    Note over User,Mongo: 4. Real-time Status Updates
+    Note over User,Mongo: Step 5 — Track Order
     User->>Nginx: GET /api/orders/:id/track
-    Nginx->>Flask: Proxy GET /api/orders/:id/track
-    Flask->>Mongo: orders_col.find_one({ _id: order_id })
-    Mongo-->>Flask: Order state
-    Flask-->>Nginx: 200 OK (Steps, Rider info, ETA)
-    Nginx-->>User: Update live stepper progress
+    Nginx->>Flask: Proxy GET
+    Flask->>Mongo: orders_col.find_one({ _id })
+    Mongo-->>Flask: Current order state
+    Flask-->>Nginx: 200 OK { step: "preparing", eta_minutes: 20 }
+    Nginx-->>User: Progress bar advances to Step 2 🍳
 ```
 
 ---
 
-## 4. Database Schema & Entity Relationships
+## 4. Database Schema
 
 ```mermaid
 erDiagram
     USERS ||--o{ ORDERS : places
-    FOODS ||--o{ REVIEWS : receives
+    FOODS  ||--o{ REVIEWS : receives
     ORDERS ||--|{ ORDER_ITEMS : contains
 
     USERS {
-        string _id PK "MongoDB ObjectId"
-        string name "User full name"
-        string email "Unique email address"
-        string password "Hashed password string"
-        date created_at "Registration timestamp"
+        string _id        PK  "MongoDB ObjectId"
+        string name           "Full name"
+        string email          "Unique email"
+        string password       "Hashed (scrypt)"
+        date   created_at     "Registration time"
     }
 
     FOODS {
-        string _id PK "MongoDB ObjectId"
-        string name "Dish title (e.g., Ambur Dum Biryani)"
-        string category "South Indian / Indian / Burgers / etc."
-        float price "Selling price in INR"
-        string image "Unsplash CDN URL with local fallback"
-        string description "Culinary description"
-        string rating "Customer rating string"
-        string tag "Badge (e.g., Tamil Bestseller)"
-        string color "Hex tint for card display"
+        string _id        PK  "MongoDB ObjectId"
+        string name           "e.g. Ambur Dum Biryani"
+        string category       "South Indian / Burgers / etc."
+        float  price          "Price in INR"
+        string image          "CDN URL with local fallback"
+        string description    "Culinary description"
+        string rating         "Display rating"
+        string tag            "Badge e.g. Tamil Bestseller"
+        string color          "Hex tint for card"
     }
 
     ORDERS {
-        string _id PK "MongoDB ObjectId"
-        string user_id FK "Reference to USERS"
-        string user_name "Customer name"
-        string user_email "Customer email"
-        string address "Delivery street address"
-        string payment_method "UPI / Cash on Delivery / Card"
-        string coupon_code "Applied code or null"
-        float discount "Deducted discount amount"
-        float total "Final payable amount"
-        string status "confirmed | preparing | out_for_delivery | delivered | cancelled"
-        int eta_minutes "Estimated delivery time"
-        date created_at "Timestamp"
-        date updated_at "Status change timestamp"
+        string _id          PK  "MongoDB ObjectId"
+        string user_id      FK  "→ USERS._id"
+        string user_name        "Customer name"
+        string address          "Delivery address"
+        string payment_method   "UPI / Cash / Card"
+        string coupon_code      "Applied code or null"
+        float  discount         "Amount deducted"
+        float  total            "Final payable amount"
+        string status           "confirmed | preparing | out_for_delivery | delivered"
+        int    eta_minutes      "Estimated delivery time"
+        date   created_at       "Order timestamp"
+        date   updated_at       "Last status change"
     }
 
     ORDER_ITEMS {
-        string name "Food item name"
-        float price "Unit price"
-        int quantity "Count ordered"
+        string name       "Food item name"
+        float  price      "Unit price"
+        int    quantity   "Count ordered"
     }
 
     REVIEWS {
-        string _id PK "MongoDB ObjectId"
-        string food_id FK "Reference to FOODS"
-        string user_name "Reviewer display name"
-        int rating "Integer rating between 1 and 5"
-        string comment "Text feedback"
-        date created_at "Timestamp"
+        string _id       PK  "MongoDB ObjectId"
+        string food_id   FK  "→ FOODS._id"
+        string user_name     "Reviewer name"
+        int    rating        "1 to 5 stars"
+        string comment       "Text feedback"
+        date   created_at    "Timestamp"
     }
 ```
 
@@ -208,27 +295,108 @@ erDiagram
 
 ## 5. Security Architecture
 
-1. **Principle of Least Privilege:**
-   - The backend Gunicorn process runs under a non-root system user (`appuser:appgroup`).
-   - MongoDB is network-isolated and accepts connections exclusively from containers on `zestora_net`.
-2. **Data-at-Rest and Data-in-Transit:**
-   - Passwords use industry-standard cryptographic hashes with random salt.
-   - External asset loading uses strict fallback handlers (`onError` fallback to local assets).
-3. **HTTP Armor:**
-   - Nginx injects protective HTTP response headers:
-     ```nginx
-     add_header X-Frame-Options "SAMEORIGIN" always;
-     add_header X-Content-Type-Options "nosniff" always;
-     add_header X-XSS-Protection "1; mode=block" always;
-     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
-     ```
+```
+┌──────────────────────────────────────────────────────────────────────┐
+│                        SECURITY LAYERS                               │
+│                                                                      │
+│  🌐 NETWORK LAYER                                                    │
+│     ✅ MongoDB port 27017 — internal Docker network ONLY             │
+│     ✅ Backend port 5000  — internal Docker network ONLY             │
+│     ✅ Only Nginx port 80 is publicly reachable                      │
+│                                                                      │
+│  🛡️ DEVSECOPS — TRIVY                                               │
+│     ✅ Filesystem scan (source code + dependencies) — 0 Critical     │
+│     ✅ Container image scan (OS packages) — 0 Critical               │
+│     📄 Full report: reports/trivy-security-audit.md                  │
+│                                                                      │
+│  🔐 AUTHENTICATION                                                   │
+│     ✅ Stateless JWT tokens (HMAC-SHA256 signed)                     │
+│     ✅ Passwords hashed with scrypt + random salt                    │
+│     ✅ Backend Gunicorn runs as non-root user (appuser)              │
+│                                                                      │
+│  🌍 HTTP HEADERS (Nginx)                                             │
+│     ✅ X-Frame-Options: SAMEORIGIN                                   │
+│     ✅ X-Content-Type-Options: nosniff                               │
+│     ✅ X-XSS-Protection: 1; mode=block                              │
+│     ✅ Referrer-Policy: strict-origin-when-cross-origin              │
+│                                                                      │
+│  ☁️ AWS IAM                                                          │
+│     ✅ EC2 instance profile with least-privilege ECR access          │
+│     ✅ No hardcoded AWS credentials in source code                   │
+└──────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 6. Future Scalability Roadmap
+## 6. Container Network Map
 
-For production growth beyond a single instance:
-- **Application Tier:** Scale Flask horizontally across an EC2 Auto Scaling Group behind an AWS Application Load Balancer (ALB).
-- **Database Tier:** Migrate MongoDB to **Amazon DocumentDB** or **MongoDB Atlas** with multi-AZ replication.
-- **Media Delivery:** Distribute static assets and meal photography via **Amazon CloudFront CDN** backed by an **Amazon S3** bucket.
+All 5 production containers run on the same Docker bridge network `zestora_net`. Only Nginx has an external port binding.
 
+```
+Internet
+   │
+   │ Port 80 (public)
+   ▼
+┌─────────────────────────────────────────────────────────┐
+│               Docker Network: zestora_net                │
+│                                                         │
+│  ┌────────────────┐    ┌────────────────────────────┐   │
+│  │   nginx:1.27   │───▶│   backend:python:3.11-slim │   │
+│  │   Port 80 ✅   │    │   Port 5000 (internal)     │   │
+│  │   (public)     │    └────────────┬───────────────┘   │
+│  └────────────────┘                 │ PyMongo            │
+│                                     ▼                   │
+│                         ┌───────────────────────┐       │
+│                         │   mongo:7.0           │       │
+│                         │   Port 27017 (internal│       │
+│                         │   + volume: mongo_data│       │
+│                         └───────────────────────┘       │
+│                                                         │
+│  ┌────────────────┐    ┌────────────────────────────┐   │
+│  │  prometheus    │───▶│   grafana                  │   │
+│  │  Port 9090     │    │   Port 3002                │   │
+│  │  (via /prom..) │    │   (via /grafana/)          │   │
+│  └───────┬────────┘    └────────────────────────────┘   │
+│          │ scrape                                        │
+│          └──────▶ backend + nginx metrics               │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Docker Compose files:**
+| File | Purpose |
+|---|---|
+| `docker-compose.yml` | Local development (with hot reload) |
+| `docker-compose.prod.yml` | Production deployment on EC2 |
+| `jenkins/docker-compose.jenkins.yml` | Jenkins container (port 8080) |
+
+---
+
+## 7. Scalability Roadmap
+
+The current single-EC2 architecture can grow into a full AWS production setup:
+
+```mermaid
+flowchart LR
+    NOW["🟢 Current\nSingle EC2 t3.micro\n5 Docker containers"] -->|Scale out| NEXT
+
+    subgraph NEXT["⚡ Next: AWS Managed Services"]
+        ALB["Application Load Balancer\n(multi-EC2 auto scaling)"]
+        EKS["AWS EKS\n(Kubernetes HPA ready\n— k8s/ manifests exist)"]
+        DOCDB["Amazon DocumentDB\n(MongoDB-compatible, multi-AZ)"]
+        CF["CloudFront CDN\n(static assets globally cached)"]
+        ECR2["AWS ECR\n(versioned container images)"]
+    end
+```
+
+| Current | Future Upgrade |
+|---|---|
+| Single EC2 | EC2 Auto Scaling Group behind ALB |
+| Docker Compose | AWS EKS (Kubernetes manifests are **already written** in `k8s/`) |
+| Local MongoDB container | Amazon DocumentDB or MongoDB Atlas (multi-AZ) |
+| Nginx static serving | Amazon CloudFront CDN + S3 |
+| Local Docker builds | AWS ECR + GitHub Actions push on merge |
+
+---
+
+> 📌 **Related docs:**
+> [`QUICK_LINKS.md`](./QUICK_LINKS.md) · [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) · [`jenkins/JENKINS_WORKFLOW.md`](./jenkins/JENKINS_WORKFLOW.md) · [`k8s/README.md`](./k8s/README.md)
