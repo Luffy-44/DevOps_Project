@@ -444,5 +444,5 @@ curl -X POST http://admin:admin@localhost:8080/job/Zestora-DevOps-Pipeline/build
 
 ---
 
-> 📌 **See Also:** [`QUICK_LINKS.md`](../QUICK_LINKS.md) for all live URLs and credentials.
+> 📌 **See Also:** [`README.md`](./README.md) for live endpoints, architecture specifications, and documentation index.
 

@@ -399,4 +399,4 @@ flowchart LR
 ---
 
 > 📌 **Related docs:**
-> [`QUICK_LINKS.md`](./QUICK_LINKS.md) · [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) · [`jenkins/JENKINS_WORKFLOW.md`](./jenkins/JENKINS_WORKFLOW.md) · [`k8s/README.md`](./k8s/README.md)
+> [`README.md`](./README.md) · [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) · [`JENKINS_WORKFLOW.md`](./JENKINS_WORKFLOW.md) · [`k8s/README.md`](./k8s/README.md)

@@ -159,9 +159,9 @@ AWS_Project/
 ├── docker-compose.yml          # Local development stack
 ├── docker-compose.prod.yml     # Production stack (EC2)
 ├── Jenkinsfile                 # 8-stage declarative Jenkins pipeline
-├── QUICK_LINKS.md              # 🔗 All live URLs & credentials
-├── PROJECT_REVIEW_GUIDE.md     # 📋 Full review presentation script
 ├── DEVOPS_ARCHITECTURE.md      # 🏗️ Detailed architecture diagrams
+├── SYSTEM_ARCHITECTURE.md      # 🏛️ Multi-tier system architecture & ERD
+├── JENKINS_WORKFLOW.md         # 🔧 8-stage Jenkins CI/CD pipeline spec
 └── README.md                   # This file
 ```
 
@@ -295,8 +295,6 @@ docker-compose up --build
 
 ## 🗑️ Teardown
 
-> See [`AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md`](./AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md) for the complete teardown guide.
-
 ```bash
 # Stop EC2 containers
 ssh -i ~/adm.pem ubuntu@54.234.169.116 "cd /home/ubuntu/app && docker-compose -f docker-compose.prod.yml down"
@@ -311,13 +309,12 @@ cd terraform && terraform destroy
 
 | Document | Description |
 |---|---|
-| [`QUICK_LINKS.md`](./QUICK_LINKS.md) | All live URLs, credentials, and quick commands |
-| [`PROJECT_REVIEW_GUIDE.md`](./PROJECT_REVIEW_GUIDE.md) | Full review presentation script |
-| [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) | Detailed architecture diagrams |
-| [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | System-level architecture |
-| [`k8s/README.md`](./k8s/README.md) | Kubernetes manifests documentation |
-| [`reports/trivy-security-audit.md`](./reports/trivy-security-audit.md) | Trivy security audit results |
-| [`AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md`](./AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md) | AWS resources and teardown |
+| [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) | Complete DevOps pipeline architecture, flowcharts, and component specs |
+| [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | 4-tier system architecture, sequence diagrams, and database schema |
+| [`JENKINS_WORKFLOW.md`](./JENKINS_WORKFLOW.md) | 8-stage declarative Jenkins pipeline breakdown and stage views |
+| [`k8s/README.md`](./k8s/README.md) | Kubernetes production manifests and HPA auto-scaling documentation |
+| [`reports/trivy-security-audit.md`](./reports/trivy-security-audit.md) | Aqua Security Trivy audit results (0 Critical CVEs) |
+| [`frontend/README.md`](./frontend/README.md) | React 18 SPA frontend architecture and multi-stage Docker build docs |
 
 ---
 

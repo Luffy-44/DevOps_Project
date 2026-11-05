@@ -45,3 +45,14 @@ terraform/.terraform.lock.hcl
 terraform/*.tfstate*
 terraform/terraform.tfvars
 teardown.log
+
+# Personal evaluation & local runner scripts
+PROJECT_REVIEW_GUIDE.md
+QUICK_LINKS.md
+AWS_RESOURCE_INVENTORY_AND_TEARDOWN.md
+DEPLOYMENT_EC2.md
+devops.ps1
+scripts/auto-destroy*
+scripts/cancel-auto-destroy*
+scripts/update-live-ec2.sh
+
