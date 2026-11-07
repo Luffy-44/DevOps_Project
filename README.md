@@ -28,6 +28,7 @@
 | **Docker Hub (FE)** | [https://hub.docker.com/r/shoyo44/zestora-frontend](https://hub.docker.com/r/shoyo44/zestora-frontend) | `docker pull shoyo44/zestora-frontend` |
 | **Docker Hub (BE)** | [https://hub.docker.com/r/shoyo44/zestora-backend](https://hub.docker.com/r/shoyo44/zestora-backend) | `docker pull shoyo44/zestora-backend` |
 | **Jenkins (local)** | [http://localhost:8080](http://localhost:8080) | `admin` / `admin` (Build #1 100% Green) |
+| **K8s Dashboard (local)** | `minikube dashboard` | Interactive visual GUI in `zestora` namespace |
 
 
 ---
@@ -111,7 +112,7 @@ flowchart TD
 |---|---|---|
 | **Containerization** | Docker | Multi-stage builds, `node:20-alpine` + `nginx:1.27-alpine`, `python:3.11-slim` |
 | **Registries** | Docker Hub & AWS ECR | Public images (`shoyo44/zestora-*`) + private AWS ECR |
-| **Orchestration** | Kubernetes | 7 manifests, live on Docker Desktop K8s (kind v1.36.1), HPA (2–10 pods), StatefulSet |
+| **Orchestration** | Kubernetes & Minikube | 7 production manifests, live in `zestora` namespace (6 pods, StatefulSet, 5Gi PVC, HPAs) + Minikube Web Dashboard |
 | **Config Management**| Ansible | Automated host provisioning & zero-downtime deployment playbook over SSH |
 | **CI/CD** | Jenkins | 8-stage declarative pipeline (Checkout → Build → Test → Trivy Scan → Push ECR → Deploy → Smoke Test → Notify) |
 | **CI/CD** | GitHub Actions | Trivy scan + SSH-based EC2 deployment on every push to `main` |
@@ -222,29 +223,39 @@ Every push to `main` triggers:
 
 ---
 
-## ☸️ Kubernetes (EKS-Ready)
+## ☸️ Kubernetes Orchestration & Minikube
 
-The `k8s/` directory contains 7 production-ready manifests deployable to AWS EKS:
+Zestora's production manifests are orchestrated locally with **Minikube** (and ready for AWS EKS) under the dedicated `zestora` namespace:
 
+### 1. Launch & Deploy Stack
 ```bash
-# Apply all manifests
-kubectl apply -f k8s/namespace.yaml
-kubectl apply -f k8s/configmap-secrets.yaml
-kubectl apply -f k8s/mongo-statefulset.yaml
-kubectl apply -f k8s/backend-deployment.yaml
-kubectl apply -f k8s/frontend-deployment.yaml
-kubectl apply -f k8s/ingress.yaml
-kubectl apply -f k8s/hpa.yaml
+# Start Minikube cluster (D: drive storage optimized)
+minikube start --driver=docker --memory=2048m --cpus=2
 
-# Check HPA scaling
-kubectl get hpa -n zestora
+# Enable metrics server for HPA autoscaling
+minikube addons enable metrics-server
+
+# Apply all production manifests
+kubectl apply -f k8s/namespace.yaml
+kubectl apply -f k8s/
 ```
 
-HPA auto-scales frontend and backend pods from **2 → 10 replicas** based on:
-- CPU usage > 70%
-- Memory usage > 80%
+### 2. Interactive Kubernetes Web Dashboard
+Launch the official visual web dashboard in your browser:
+```bash
+minikube dashboard
+```
+> **View Workloads:** In the top-left namespace selector, choose **`zestora`** (or navigate to `.../#/workloads?namespace=zestora`) to view live visual graphs for:
+> - 🟢 **Pods (6/6 Running):** `3x zestora-backend`, `2x zestora-frontend`, `1x zestora-mongo-0`
+> - 🟢 **Deployments & StatefulSets:** RollingUpdate strategies & 5Gi PersistentVolumeClaim (`mongo-data`)
+> - 🟢 **Horizontal Pod Autoscaling (HPA):** Auto-scales from 2 to 10 replicas on CPU > 70% and Memory > 80%
 
-> Full docs: [`k8s/README.md`](./k8s/README.md)
+### 3. Access Frontend App Directly via Minikube
+```bash
+minikube service zestora-frontend -n zestora
+```
+
+> Full documentation: [`k8s/README.md`](./k8s/README.md)
 
 ---
 
