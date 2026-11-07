@@ -1,0 +1,75 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+#  Zestora – Enterprise Server Configuration & Deployment Playbook
+# ─────────────────────────────────────────────────────────────────────────────
+
+- name: Provision and Configure Zestora Application Host on AWS EC2
+  hosts: webservers
+  become: yes
+  vars:
+    app_dir: "/home/ubuntu/app"
+    repo_url: "https://github.com/Luffy-44/DevOps_Project.git"
+
+  tasks:
+    - name: 1. Update apt cache & upgrade existing packages
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        upgrade: dist
+
+    - name: 2. Install essential system dependencies
+      apt:
+        name:
+          - curl
+          - git
+          - ca-certificates
+          - gnupg
+          - ufw
+        state: present
+
+    - name: 3. Install Docker Engine and Docker Compose plugin
+      apt:
+        name:
+          - docker.io
+          - docker-compose-v2
+        state: present
+
+    - name: 4. Ensure Docker service is enabled and running
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: 5. Add ubuntu user to the docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: 6. Clone or pull latest Zestora codebase from GitHub
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become: no
+
+    - name: 7. Deploy production microservice stack via Docker Compose
+      command: docker compose -f docker-compose.prod.yml up -d --pull always
+      args:
+        chdir: "{{ app_dir }}"
+      become: no
+
+    - name: 8. Execute automated smoke test on live health endpoint
+      uri:
+        url: "http://localhost/api/health"
+        status_code: 200
+        return_content: yes
+      register: health_check
+      until: health_check.status == 200
+      retries: 6
+      delay: 5
+
+    - name: 9. Display deployment verification result
+      debug:
+        msg: "🎉 Zestora production stack successfully deployed & healthy via Ansible!"
