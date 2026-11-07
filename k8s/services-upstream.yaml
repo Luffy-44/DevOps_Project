@@ -1,0 +1,35 @@
+# ─────────────────────────────────────────────────────────────────────────────
+#  Upstream Internal Services for Nginx reverse proxy resolution in Kubernetes
+# ─────────────────────────────────────────────────────────────────────────────
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: zestora
+  labels:
+    app: zestora-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  selector:
+    app: zestora-backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: zestora
+  labels:
+    app: zestora-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: http
+  selector:
+    app: zestora-backend
