@@ -21,44 +21,62 @@ This directory contains enterprise-grade Kubernetes manifests for orchestrating 
 
 ## 🚀 Deployment Instructions
 
-### 1. Deploy All Resources to Cluster
+### 1. Start Minikube (D: Drive Optimized)
+```bash
+# Sets Minikube home to D: drive (0 bytes on C:)
+set MINIKUBE_HOME=D:\minikube
+minikube start --driver=docker --memory=2048m --cpus=2
+
+# Enable metrics-server for HPA autoscaling
+minikube addons enable metrics-server
+```
+
+### 2. Deploy All Resources to Cluster
 ```bash
 kubectl apply -f k8s/namespace.yaml
 kubectl apply -f k8s/
 ```
 
-### 2. Verify Pods & Services
+### 3. Verify Pods & Services
 ```bash
-kubectl get pods -n zestora -o wide
-kubectl get svc -n zestora
-kubectl get hpa -n zestora
+kubectl get pods,deployments,statefulset,svc,pvc,hpa -n zestora -o wide
 ```
 
-### 3. Check Autoscaling Status
+### 4. Access Frontend via Minikube
 ```bash
-kubectl describe hpa zestora-backend-hpa -n zestora
+# Open frontend directly in browser
+minikube service zestora-frontend -n zestora
+
+# Or open official visual Kubernetes Web Dashboard
+minikube dashboard
 ```
 
 ---
 
-## 🟢 Live Deployment Verification (Docker Desktop / Kind v1.36.1)
+## 🟢 Live Deployment Verification (Minikube v1.39.0 / v1.37.0 Control Plane)
 
-All pods running in the `zestora` namespace:
+All 6 pods running 100% healthy inside the `zestora` namespace:
 
 ```text
 NAME                                READY   STATUS    RESTARTS   AGE
-zestora-backend-595bf7f658-czfps    1/1     Running   0          5m
-zestora-backend-595bf7f658-dkq55    1/1     Running   0          5m
-zestora-backend-595bf7f658-r9hwq    1/1     Running   0          5m
-zestora-frontend-5db47dbd77-qvnwc   1/1     Running   0          2m
-zestora-frontend-5db47dbd77-t4lfq   1/1     Running   0          2m
-zestora-mongo-0                     1/1     Running   0          5m
+zestora-backend-66544c5d4b-82kbh    1/1     Running   0          3m
+zestora-backend-66544c5d4b-mcb8x    1/1     Running   0          3m
+zestora-backend-66544c5d4b-r9f2n    1/1     Running   0          3m
+zestora-frontend-588fdf6f6b-b9gk4   1/1     Running   0          3m
+zestora-frontend-588fdf6f6b-jjp2d   1/1     Running   0          3m
+zestora-mongo-0                     1/1     Running   0          3m
 ```
 
-Auto-scaler status:
+Persistent Volume Claims:
 ```text
-NAME                   REFERENCE                     TARGETS                                     MINPODS   MAXPODS   REPLICAS
-zestora-backend-hpa    Deployment/zestora-backend    cpu: <unknown>/70%, memory: <unknown>/80%   2         10        3
-zestora-frontend-hpa   Deployment/zestora-frontend   cpu: <unknown>/70%                          2         10        2
+NAME                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS
+mongo-data-zestora-mongo-0         Bound    pvc-466da5b2-c6ad-4b13-9117-5adcbe43ee18   5Gi        RWO            standard
+```
+
+Horizontal Pod Autoscaler (HPA):
+```text
+NAME                   REFERENCE                     TARGETS                  MINPODS   MAXPODS   REPLICAS
+zestora-backend-hpa    Deployment/zestora-backend    cpu: 70%, memory: 80%    2         10        3
+zestora-frontend-hpa   Deployment/zestora-frontend   cpu: 70%                 2         10        2
 ```
 
