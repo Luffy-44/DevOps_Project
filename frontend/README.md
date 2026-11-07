@@ -57,6 +57,7 @@ EXPOSE 80
 ```
 
 **Final image size:** ~25 MB (alpine-based, no Node.js runtime in production)
+* **Docker Hub Registry:** [`shoyo44/zestora-frontend:latest`](https://hub.docker.com/r/shoyo44/zestora-frontend)
 
 ---
 

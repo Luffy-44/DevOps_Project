@@ -28,3 +28,4 @@ ansible -i inventory.ini webservers -m ping
 # 2. Run the deployment playbook
 ansible-playbook -i inventory.ini deploy-playbook.yml
 ```
+

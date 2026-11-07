@@ -362,41 +362,42 @@ Internet
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Docker Compose files:**
-| File | Purpose |
-|---|---|
-| `docker-compose.yml` | Local development (with hot reload) |
-| `docker-compose.prod.yml` | Production deployment on EC2 |
-| `jenkins/docker-compose.jenkins.yml` | Jenkins container (port 8080) |
+**Docker Compose files & Containers:**
+| File | Purpose | Active Services |
+|---|---|---|
+| `docker-compose.yml` | Unified local stack (Docker Desktop, project: `AWS_Project`) | `frontend` (:3001), `backend` (:5000), `mongo` (:27017), `prometheus` (:9090), `grafana` (:3002), `jenkins` (:8080) |
+| `docker-compose.prod.yml` | Production deployment on AWS EC2 (`54.234.169.116`) | `frontend` (:80), `backend` (:5000), `mongo` (:27017), `prometheus` (:9090), `grafana` (:3002) |
+| `ansible/deploy-playbook.yml` | Automated idempotent configuration & deploy | Orchestrates Docker setup and runs compose stack |
 
 ---
 
 ## 7. Scalability Roadmap
 
-The current single-EC2 architecture can grow into a full AWS production setup:
+The current single-EC2 architecture can seamlessly scale into an enterprise cloud setup. In fact, **Kubernetes manifests are already created and verified live** in the `zestora` namespace:
 
 ```mermaid
 flowchart LR
-    NOW["🟢 Current\nSingle EC2 t3.micro\n5 Docker containers"] -->|Scale out| NEXT
+    NOW["🟢 Current Live\nEC2 t3.micro (5 containers)\n+ Local K8s (6 pods running)"] -->|Scale out| NEXT
 
-    subgraph NEXT["⚡ Next: AWS Managed Services"]
-        ALB["Application Load Balancer\n(multi-EC2 auto scaling)"]
-        EKS["AWS EKS\n(Kubernetes HPA ready\n— k8s/ manifests exist)"]
+    subgraph NEXT["⚡ Cloud Managed Scaling"]
+        ALB["Application Load Balancer\n(multi-AZ routing)"]
+        EKS["AWS EKS\n(Production Kubernetes\nk8s/ manifests ready & verified)"]
         DOCDB["Amazon DocumentDB\n(MongoDB-compatible, multi-AZ)"]
         CF["CloudFront CDN\n(static assets globally cached)"]
-        ECR2["AWS ECR\n(versioned container images)"]
+        DHUB["Docker Hub / AWS ECR\n(shoyo44/zestora-*)"]
     end
 ```
 
-| Current | Future Upgrade |
-|---|---|
-| Single EC2 | EC2 Auto Scaling Group behind ALB |
-| Docker Compose | AWS EKS (Kubernetes manifests are **already written** in `k8s/`) |
-| Local MongoDB container | Amazon DocumentDB or MongoDB Atlas (multi-AZ) |
-| Nginx static serving | Amazon CloudFront CDN + S3 |
-| Local Docker builds | AWS ECR + GitHub Actions push on merge |
+| Component | Current State | Cloud Production Roadmap |
+|---|---|---|
+| **Compute** | AWS EC2 `t3.micro` + Docker Desktop Kind cluster | EC2 Auto Scaling Group behind AWS ALB |
+| **Orchestration** | Kubernetes 1.36.1 (`zestora` namespace, 6 pods, HPA) | AWS EKS with cluster-autoscaler |
+| **Database** | StatefulSet MongoDB with 5Gi PV | Amazon DocumentDB or MongoDB Atlas multi-AZ |
+| **Static Assets** | Nginx 1.27 Alpine cache | Amazon CloudFront CDN + S3 |
+| **Images** | Docker Hub (`shoyo44/zestora-*`) | Versioned immutable releases on Docker Hub / AWS ECR |
+| **Configuration** | Ansible automated playbooks (`deploy-playbook.yml`) | GitOps with ArgoCD / Ansible Tower |
 
 ---
 
 > 📌 **Related docs:**
-> [`README.md`](./README.md) · [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) · [`JENKINS_WORKFLOW.md`](./JENKINS_WORKFLOW.md) · [`k8s/README.md`](./k8s/README.md)
+> [`README.md`](./README.md) · [`DEVOPS_ARCHITECTURE.md`](./DEVOPS_ARCHITECTURE.md) · [`JENKINS_WORKFLOW.md`](./JENKINS_WORKFLOW.md) · [`k8s/README.md`](./k8s/README.md) · [`ansible/README.md`](./ansible/README.md)

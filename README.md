@@ -5,6 +5,7 @@
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white)
 ![Jenkins](https://img.shields.io/badge/Jenkins-D24939?style=for-the-badge&logo=jenkins&logoColor=white)
+![Ansible](https://img.shields.io/badge/Ansible-EE0000?style=for-the-badge&logo=ansible&logoColor=white)
 ![Terraform](https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white)
 ![Prometheus](https://img.shields.io/badge/Prometheus-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
@@ -14,16 +15,19 @@
 
 ---
 
-## 🌐 Live Demo Links
+## 🌐 Live Demo & Registry Links
 
-| Service | URL | Credentials |
+| Service | URL | Credentials / Notes |
 |---|---|---|
-| **App** | [http://54.234.169.116](http://54.234.169.116) | — |
-| **Grafana** | [http://54.234.169.116/grafana/](http://54.234.169.116/grafana/) | `admin` / `admin` |
-| **Prometheus** | [http://54.234.169.116/prometheus/graph](http://54.234.169.116/prometheus/graph) | — |
-| **Health API** | [http://54.234.169.116/api/health](http://54.234.169.116/api/health) | — |
-| **GitHub** | [https://github.com/Luffy-44/DevOps_Project](https://github.com/Luffy-44/DevOps_Project) | — |
-| **Jenkins (local)** | [http://localhost:8080](http://localhost:8080) | `admin` / `admin` |
+| **App** | [http://54.234.169.116](http://54.234.169.116) | Live 3-Tier Production Host (AWS EC2) |
+| **Grafana** | [http://54.234.169.116/grafana/](http://54.234.169.116/grafana/) | `admin` / `admin` (Live Metrics) |
+| **Prometheus** | [http://54.234.169.116/prometheus/graph](http://54.234.169.116/prometheus/graph) | Active Target Scrapes |
+| **Health API** | [http://54.234.169.116/api/health](http://54.234.169.116/api/health) | `{"db":"ok","status":"ok"}` |
+| **GitHub** | [https://github.com/Luffy-44/DevOps_Project](https://github.com/Luffy-44/DevOps_Project) | Source Repository |
+| **GitHub Actions** | [https://github.com/Luffy-44/DevOps_Project/actions](https://github.com/Luffy-44/DevOps_Project/actions) | Cloud CI/CD Workflows |
+| **Docker Hub (FE)** | [https://hub.docker.com/r/shoyo44/zestora-frontend](https://hub.docker.com/r/shoyo44/zestora-frontend) | `docker pull shoyo44/zestora-frontend` |
+| **Docker Hub (BE)** | [https://hub.docker.com/r/shoyo44/zestora-backend](https://hub.docker.com/r/shoyo44/zestora-backend) | `docker pull shoyo44/zestora-backend` |
+| **Jenkins (local)** | [http://localhost:8080](http://localhost:8080) | `admin` / `admin` (Build #1 100% Green) |
 
 > **Demo promo code:** `AWS20` — applies a 20% discount on any order.
 
@@ -41,8 +45,14 @@ flowchart TD
 
     GH -->|webhook| JENKINS["🔧 Jenkins\n8-Stage Pipeline"]
     JENKINS -->|build & test| DOCKER_BUILD["🐳 Docker\nMulti-stage Build"]
+    DOCKER_BUILD -->|push image| DOCKER_HUB["📦 Docker Hub\nshoyo44/zestora-*"]
     DOCKER_BUILD -->|push image| ECR["📦 AWS ECR\nContainer Registry"]
     ECR -->|pull & deploy| EC2
+
+    subgraph CONFIG["⚙️ Configuration Management"]
+        ANSIBLE["📜 Ansible Engine\ninventory.ini + Playbook"]
+        ANSIBLE -->|SSH configure & deploy| EC2
+    end
 
     subgraph EC2["☁️ AWS EC2 — Ubuntu 24.04 (54.234.169.116)"]
         NGINX["🌐 Nginx Reverse Proxy\n:80"]
@@ -101,11 +111,13 @@ flowchart TD
 | Category | Technology | Details |
 |---|---|---|
 | **Containerization** | Docker | Multi-stage builds, `node:20-alpine` + `nginx:1.27-alpine`, `python:3.11-slim` |
-| **Orchestration** | Kubernetes | 7 manifests, HPA (CPU 70% / Memory 80%), Ingress, StatefulSet |
+| **Registries** | Docker Hub & AWS ECR | Public images (`shoyo44/zestora-*`) + private AWS ECR |
+| **Orchestration** | Kubernetes | 7 manifests, live on Docker Desktop K8s (kind v1.36.1), HPA (2–10 pods), StatefulSet |
+| **Config Management**| Ansible | Automated host provisioning & zero-downtime deployment playbook over SSH |
 | **CI/CD** | Jenkins | 8-stage declarative pipeline (Checkout → Build → Test → Trivy Scan → Push ECR → Deploy → Smoke Test → Notify) |
 | **CI/CD** | GitHub Actions | Trivy scan + SSH-based EC2 deployment on every push to `main` |
 | **Security** | Trivy | 0 Critical CVEs — full audit at `reports/trivy-security-audit.md` |
-| **Monitoring** | Prometheus + Grafana | Live dashboards, container metrics, API health checks |
+| **Monitoring** | Prometheus + Grafana | Live dashboards, container metrics, custom telemetry (`/api/metrics`) |
 | **IaC** | Terraform | VPC, ALB, CloudFront, ECR, IAM — modular, state-managed |
 | **Cloud** | AWS | EC2 (t3.micro), ECR, VPC, ALB, CloudFront, IAM |
 | **Auto-sync** | Bash cron | EC2 pulls from GitHub `main` every 60 seconds and redeploys |
@@ -116,6 +128,10 @@ flowchart TD
 
 ```
 AWS_Project/
+├── ansible/                    # Ansible configuration management
+│   ├── inventory.ini           # Target EC2 host & SSH config
+│   ├── deploy-playbook.yml     # 9-step automated deployment playbook
+│   └── README.md
 ├── frontend/                   # React + TypeScript + Vite SPA
 │   ├── src/
 │   ├── nginx.conf              # Nginx SPA routing + /api proxy
@@ -125,12 +141,13 @@ AWS_Project/
 │   ├── app.py
 │   ├── requirements.txt
 │   └── Dockerfile
-├── k8s/                        # Kubernetes manifests (EKS-ready)
+├── k8s/                        # Kubernetes manifests (Live & EKS-ready)
 │   ├── namespace.yaml
 │   ├── configmap-secrets.yaml
 │   ├── mongo-statefulset.yaml
 │   ├── backend-deployment.yaml
 │   ├── frontend-deployment.yaml
+│   ├── services-upstream.yaml  # Cluster DNS reverse proxy mappings
 │   ├── ingress.yaml
 │   ├── hpa.yaml                # Scales 2–10 replicas on CPU/Memory
 │   └── README.md
@@ -151,12 +168,13 @@ AWS_Project/
 ├── jenkins/                    # Jenkins container config
 │   └── docker-compose.jenkins.yml
 ├── scripts/                    # Automation scripts
-│   └── sync-github-to-aws.sh  # EC2 auto-sync daemon (runs every 60s)
+│   ├── sync-github-to-aws.sh  # EC2 auto-sync daemon (runs every 60s)
+│   └── load_simulate.py       # Metrics & traffic simulation load generator
 ├── reports/
 │   └── trivy-security-audit.md # Security audit — 0 Critical CVEs
 ├── .github/workflows/
 │   └── deploy.yml              # GitHub Actions CI/CD
-├── docker-compose.yml          # Local development stack
+├── docker-compose.yml          # Unified 6-container local stack (AWS_Project)
 ├── docker-compose.prod.yml     # Production stack (EC2)
 ├── Jenkinsfile                 # 8-stage declarative Jenkins pipeline
 ├── DEVOPS_ARCHITECTURE.md      # 🏗️ Detailed architecture diagrams
@@ -313,6 +331,7 @@ cd terraform && terraform destroy
 | [`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md) | 4-tier system architecture, sequence diagrams, and database schema |
 | [`JENKINS_WORKFLOW.md`](./JENKINS_WORKFLOW.md) | 8-stage declarative Jenkins pipeline breakdown and stage views |
 | [`k8s/README.md`](./k8s/README.md) | Kubernetes production manifests and HPA auto-scaling documentation |
+| [`ansible/README.md`](./ansible/README.md) | Automated configuration management & EC2 deployment playbooks |
 | [`reports/trivy-security-audit.md`](./reports/trivy-security-audit.md) | Aqua Security Trivy audit results (0 Critical CVEs) |
 | [`frontend/README.md`](./frontend/README.md) | React 18 SPA frontend architecture and multi-stage Docker build docs |
 
@@ -320,8 +339,8 @@ cd terraform && terraform destroy
 
 <div align="center">
 
-**Built with ❤️ as a full DevOps showcase project**
+**Built with ❤️ as an Enterprise DevOps Showcase Project**
 
-*React · Flask · MongoDB · Docker · Kubernetes · Jenkins · Terraform · AWS · Prometheus · Grafana · Trivy*
+*React · Flask · MongoDB · Docker · Kubernetes · Jenkins · Ansible · Terraform · AWS · Prometheus · Grafana · Trivy*
 
 </div>

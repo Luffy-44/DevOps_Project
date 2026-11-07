@@ -1,6 +1,6 @@
 # ⚙️ Zestora – DevOps & Cloud Architecture
 
-This document provides a comprehensive operational breakdown of the **DevOps architecture**, cloud infrastructure, container orchestration, memory engineering, zero-cost AWS budgeting, and disaster recovery strategies for **Zestora**.
+This document provides a comprehensive operational breakdown of the **DevOps architecture**, cloud infrastructure, CI/CD automation, configuration management, container orchestration, memory engineering, zero-cost AWS budgeting, and disaster recovery strategies for **Zestora**.
 
 ---
 
@@ -9,41 +9,55 @@ This document provides a comprehensive operational breakdown of the **DevOps arc
 1. **Zero Financial Footprint ($0.00 Total):**
    - Strictly engineered within the **AWS Free Tier** limits.
    - No paid managed services (No NAT Gateways, No Elastic IPs, No Application Load Balancers, No Amazon RDS/DocumentDB).
-2. **Single-Instance Micro-Architecture:**
-   - The entire stack (Nginx, React SPA, Flask REST API, MongoDB) runs inside an isolated Docker bridge network on a single `t3.micro` EC2 instance.
-3. **10-Day Auto-Destruction Safety Mechanism:**
-   - To prevent accidental ongoing usage or surprise bills after academic grading, a self-terminating countdown timer is embedded directly in the EC2 user data bootstrap script.
-4. **Memory Hardening via Swap:**
-   - A `t3.micro` provides only **1 GB of physical RAM**. To safely handle simultaneous TypeScript builds, Docker multi-stage exports, and MongoDB memory allocations without triggering the Linux Out-Of-Memory (OOM) killer, a **2 GB swap file** is dynamically provisioned.
-5. **Direct Zero-Dependency Deployment:**
-   - Bypasses external CI/CD runners to prevent runner minute limits, credential leakage, or automated platform abuse filters. Code is pushed and deployed via secure, encrypted SCP/SSH.
+2. **Single-Instance Micro-Architecture on Cloud:**
+   - Production stack runs inside an isolated Docker bridge network on an AWS `t3.micro` EC2 instance (`54.234.169.116`).
+3. **Automated Configuration Management (Ansible):**
+   - Idempotent configuration and automated deployment managed via Ansible playbooks (`ansible/deploy-playbook.yml`). Ensures zero configuration drift across environments.
+4. **Declarative CI/CD Pipeline (Jenkins & GitHub Actions):**
+   - Automated 8-stage declarative pipeline on Jenkins (`localhost:8080`) covering linting, parallel testing, Trivy DevSecOps security scanning, Docker multi-stage builds, and deployment verification.
+5. **Centralized Registry Distribution (Docker Hub):**
+   - Versioned and tagged production images stored on Docker Hub (`shoyo44/zestora-frontend:latest` & `shoyo44/zestora-backend:latest`) for rapid pull and immutable deployments.
+6. **Cloud-Native Container Orchestration (Kubernetes):**
+   - Production-grade manifests in `k8s/` supporting zero-downtime rolling updates, StatefulSets with Persistent Volume Claims (`mongo-data`), ClusterIP service mesh, and Horizontal Pod Autoscalers (HPA) scaling between 2 to 10 replicas.
+7. **Memory Hardening via Swap:**
+   - A `t3.micro` provides only **1 GB of physical RAM**. To safely handle simultaneous workloads, builds, and MongoDB allocations without triggering Linux Out-Of-Memory (OOM) killer, a **2 GB swap file** is dynamically provisioned.
 
 ---
 
-## 2. Infrastructure Architecture Diagram
+## 2. Infrastructure & DevOps Architecture Diagram
 
 ```mermaid
 flowchart TD
-    subgraph AWSCloud["Amazon Web Services (AWS) - Region: us-east-1"]
+    subgraph DEV["💻 Developer & CI/CD Layer"]
+        Dev["DevOps Engineer"]
+        GitHub["GitHub Repo (main)"]
+        Jenkins["Jenkins Server (:8080)<br/>8-Stage Pipeline"]
+        DockerHub[("Docker Hub Registry<br/>shoyo44/zestora-*")]
+        Ansible["Ansible Controller<br/>deploy-playbook.yml"]
+    end
+
+    subgraph AWSCloud["☁️ Amazon Web Services (AWS) - Region: us-east-1"]
         subgraph VPC["Default VPC (172.31.0.0/16)"]
             IGW["Internet Gateway"]
             
             subgraph Subnet["Public Subnet (172.31.16.0/20)"]
                 subgraph SecGroup["Security Group: zestora-ec2-sg"]
-                    Port80["Inbound Port 80 (HTTP)"]
-                    Port22["Inbound Port 22 (SSH via adm.pem)"]
+                    Port80["Port 80 (HTTP)"]
+                    Port22["Port 22 (SSH via adm.pem)"]
                 end
 
-                subgraph EC2["EC2 Instance: t3.micro (Ubuntu 24.04 LTS)"]
+                subgraph EC2["EC2 Instance: t3.micro (Ubuntu 24.04 LTS)<br/>54.234.169.116"]
                     HostMemory["Host RAM: 1 GB"]
                     SwapMemory["Swap Space: 2 GB (/swapfile)"]
-                    EBSStorage[("20 GB gp3 Root Volume<br/>delete_on_termination = true")]
+                    EBSStorage[("20 GB gp3 Root Volume")]
 
-                    subgraph DockerDaemon["Docker Engine & Compose Runtime"]
-                        subgraph BridgeNet["Internal Bridge Network (zestora_net)"]
-                            FrontendContainer["zestora_frontend_prod<br/>(Nginx 1.27 + React SPA)<br/>Port: 3000 -> Host 80"]
-                            BackendContainer["zestora_backend_prod<br/>(Flask + Gunicorn API)<br/>Port: 5000 (Internal)"]
-                            MongoContainer["zestora_mongo_prod<br/>(MongoDB 7.0 Community)<br/>Port: 27017 (Internal)"]
+                    subgraph DockerRuntime["Docker Engine & Compose Runtime"]
+                        subgraph BridgeNet["Docker Network: zestora_net"]
+                            FrontendContainer["zestora_frontend<br/>(Nginx 1.27 + React SPA)<br/>Port: 80"]
+                            BackendContainer["zestora_backend<br/>(Flask + Gunicorn API)<br/>Port: 5000 (Internal)"]
+                            MongoContainer["zestora_mongo<br/>(MongoDB 7.0)<br/>Port: 27017 (Internal)"]
+                            PromContainer["zestora_prometheus<br/>Port: 9090 (Internal)"]
+                            GrafContainer["zestora_grafana<br/>Port: 3002 (Internal)"]
                         end
                     end
                 end
@@ -51,15 +65,26 @@ flowchart TD
         end
     end
 
+    subgraph K8S["☸️ Kubernetes Cluster (kind v1.36.1 / zestora namespace)"]
+        K8sFront["2x zestora-frontend Pods<br/>(HPA: 2-10 replicas)"]
+        K8sBack["3x zestora-backend Pods<br/>(HPA: 2-10 replicas)"]
+        K8sMongo["1x zestora-mongo StatefulSet<br/>(5Gi Persistent Volume)"]
+    end
+
+    Dev -->|git push| GitHub
+    GitHub -->|SCM Webhook / Poll| Jenkins
+    Jenkins -->|Build & Push| DockerHub
+    Ansible -->|Idempotent Deploy| EC2
+    DockerHub -->|Pull Images| EC2
+    DockerHub -->|Pull Images| K8S
+
     InternetUsers["Internet Visitors / Graders"] -->|HTTP Port 80| IGW
-    Admin["DevOps Engineer"] -->|SSH Port 22 / SCP| IGW
     IGW --> Port80
-    IGW --> Port22
     Port80 --> FrontendContainer
-    Port22 --> EC2
     FrontendContainer -->|Reverse Proxy /api/*| BackendContainer
     BackendContainer -->|mongodb://mongo:27017| MongoContainer
-    MongoContainer --- EBSStorage
+    PromContainer -->|Scrapes :5000/metrics| BackendContainer
+    GrafContainer -->|Visualizes Metrics| PromContainer
 ```
 
 ---
@@ -85,13 +110,8 @@ sysctl vm.swappiness=10
 echo 'vm.swappiness=10' >> /etc/sysctl.conf
 ```
 
-### 3.2. 10-Day Auto-Destruction Safety Timer
-To guarantee zero unexpected billing after class submission:
-```bash
-# Schedule system shutdown after 10 days (14,400 minutes)
-shutdown -h +14400 "Zestora academic project lifecycle completed. Auto-terminating."
-```
-Once the timer expires, the instance halts and stops generating compute charges.
+### 3.2. Automated Memory & Resource Management
+In addition to swap memory, Docker resource caps (`limits.cpus: "0.45"`, `limits.memory: 384M`) prevent memory spikes. Optional system auto-shutdown timers can also be scheduled via cloud-init if time-boxed evaluation is needed.
 
 ---
 
@@ -110,12 +130,11 @@ RUN npm run build
 # Stage 2: Production runtime (Nginx 1.27 Alpine)
 FROM nginx:1.27-alpine
 COPY --from=builder /app/dist /usr/share/nginx/html
-COPY --from=builder /app/images /usr/share/nginx/html/images
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 3000
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
 ```
-* **Result:** Eliminates ~400 MB of `node_modules` and Node build tooling from the final container. The production image size is **under 35 MB**.
+* **Result:** Eliminates ~400 MB of `node_modules` and Node build tooling from the final container. The production image size is **under 30 MB**. Distributed via Docker Hub as `shoyo44/zestora-frontend:latest`.
 
 ### 4.2. Backend Multi-Stage Build
 ```dockerfile
@@ -227,4 +246,83 @@ To seed or refresh the authentic Tamil and Indian dishes in MongoDB:
 ```bash
 curl -X POST "http://54.234.169.116/api/seed?force=true"
 ```
+
+---
+
+## 8. Configuration Management with Ansible
+
+Zestora utilizes **Ansible** to achieve automated, declarative, and idempotent configuration management across deployment nodes.
+
+### 8.1. Inventory & Playbook
+- **Inventory (`ansible/inventory.ini`):** Defines the target hosts, SSH user, identity key, and remote application path.
+- **Playbook (`ansible/deploy-playbook.yml`):**
+  1. Installs prerequisite system packages (`ca-certificates`, `curl`, `gnupg`).
+  2. Sets up Docker GPG keys and official apt repositories.
+  3. Ensures Docker Engine, Docker CLI, and Docker Compose Plugin are installed and active.
+  4. Configures a persistent 2 GB swap file and tunes `vm.swappiness=10`.
+  5. Syncs application manifests and configuration files to the target node.
+  6. Deploys the multi-container stack idempotently using `community.docker.docker_compose_v2`.
+  7. Executes post-deployment smoke tests against the Nginx edge and Flask health endpoints.
+
+### 8.2. Execution
+```bash
+# Validate playbook syntax
+ansible-playbook -i ansible/inventory.ini ansible/deploy-playbook.yml --syntax-check
+
+# Run deployment
+ansible-playbook -i ansible/inventory.ini ansible/deploy-playbook.yml
+```
+
+---
+
+## 9. Container Orchestration with Kubernetes (`k8s/`)
+
+Zestora contains production-grade Kubernetes manifests capable of running on managed cloud Kubernetes (EKS/GKE) or local clusters (Docker Desktop / kind).
+
+### 9.1. Manifest Architecture
+```
+k8s/
+├── namespace.yaml              # Creates dedicated 'zestora' isolated namespace
+├── mongo-pv.yaml               # 5Gi PersistentVolume & PersistentVolumeClaim
+├── mongo-statefulset.yaml      # StatefulSet guaranteeing single-writer storage
+├── backend-deployment.yaml     # 3x Replicas with liveness & readiness probes
+├── frontend-deployment.yaml    # 2x Replicas with Nginx reverse proxy
+├── services-upstream.yaml      # Internal ClusterIP resolution for Nginx
+└── hpa.yaml                    # Horizontal Pod Autoscalers (2–10 replicas)
+```
+
+### 9.2. Live Cluster Status
+Deployments run live inside the `zestora` namespace on the kind-based cluster:
+```bash
+kubectl get pods,deployments -n zestora
+```
+| Workload | Type | Replicas | Status | Target Scaling |
+|---|---|---|---|---|
+| `zestora-backend` | Deployment | 3 / 3 | `Running` | HPA: 2–10 (CPU 70%, RAM 80%) |
+| `zestora-frontend` | Deployment | 2 / 2 | `Running` | HPA: 2–10 (CPU 70%) |
+| `zestora-mongo-0` | StatefulSet | 1 / 1 | `Running` | 5Gi Bound PVC |
+
+---
+
+## 10. Container Registry (Docker Hub)
+
+Zestora publishes official container images to Docker Hub under the `shoyo44` namespace:
+- **Frontend Image:** [`shoyo44/zestora-frontend:latest`](https://hub.docker.com/r/shoyo44/zestora-frontend)
+- **Backend Image:** [`shoyo44/zestora-backend:latest`](https://hub.docker.com/r/shoyo44/zestora-backend)
+
+All Kubernetes manifests and remote deployment scripts pull directly from these public, versioned registry images with `imagePullPolicy: IfNotPresent`.
+
+---
+
+## 11. Enterprise Jenkins CI/CD Pipeline
+
+A declarative 8-stage pipeline is maintained in `Jenkinsfile` and executed on [http://localhost:8080](http://localhost:8080):
+1. **SCM Checkout:** Polls and clones from GitHub repository.
+2. **Parallel Testing:** Runs Python unit tests and Frontend type-check & lint in parallel.
+3. **DevSecOps Filesystem Scan:** Runs Trivy to audit source dependencies (0 Critical).
+4. **Docker Multi-Stage Build:** Builds optimized images for frontend and backend.
+5. **Container Security Scan:** Trivy scans image layers for OS vulnerabilities.
+6. **Registry Publish:** Pushes tagged images to the container registry.
+7. **Terraform Validation:** Runs `terraform validate` and `terraform plan` on IaC definitions.
+8. **Deployment & Verification:** Deploys containers and runs automated smoke tests.
 
