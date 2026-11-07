@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: 440744216744.dkr.ecr.us-east-1.amazonaws.com/zestora/frontend:latest
+          image: shoyo44/zestora-frontend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 3000
