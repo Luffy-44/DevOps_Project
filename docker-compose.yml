@@ -1,6 +1,8 @@
+name: AWS_Project
+
 # ─────────────────────────────────────────────────────────────────────────────
 #  Zestora – Online Food Ordering System
-#  Services: frontend (React/Nginx)  •  backend (Flask)  •  mongo (MongoDB)
+#  Services: frontend • backend • mongo • prometheus • grafana • jenkins
 # ─────────────────────────────────────────────────────────────────────────────
 
 services:
@@ -23,11 +25,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
-    # Do NOT expose port 27017 externally in production; for local dev uncomment:
-    # ports:
-    #   - "27017:27017"
 
-    # ── Flask Backend ─────────────────────────────────────────────────────────────
+  # ── Flask Backend ─────────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -101,14 +100,35 @@ services:
     networks:
       - zestora_net
 
+  # ─── Jenkins CI/CD Automation Server ────────────────────────────────────────
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: zestora_jenkins
+    restart: unless-stopped
+    user: root
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - zestora_net
+
 # ─── Volumes ──────────────────────────────────────────────────────────────────
 volumes:
   mongo_data:
-    driver: local
+    name: aws_project_mongo_data
+    external: true
   prometheus_data:
-    driver: local
+    name: aws_project_prometheus_data
+    external: true
   grafana_data:
-    driver: local
+    name: aws_project_grafana_data
+    external: true
+  jenkins_home:
+    name: jenkins_jenkins_home
+    external: true
 
 # ─── Networks ─────────────────────────────────────────────────────────────────
 networks:
