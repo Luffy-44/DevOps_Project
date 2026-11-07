@@ -29,7 +29,6 @@
 | **Docker Hub (BE)** | [https://hub.docker.com/r/shoyo44/zestora-backend](https://hub.docker.com/r/shoyo44/zestora-backend) | `docker pull shoyo44/zestora-backend` |
 | **Jenkins (local)** | [http://localhost:8080](http://localhost:8080) | `admin` / `admin` (Build #1 100% Green) |
 
-> **Demo promo code:** `AWS20` — applies a 20% discount on any order.
 
 ---
 
