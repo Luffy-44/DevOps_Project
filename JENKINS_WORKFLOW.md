@@ -71,18 +71,18 @@ flowchart TD
 
 ## ✅ Live Build — All 8 Stages Green
 
-This is the **actual Jenkins Stage View** from Build #1 of the `Zestora-DevOps-Pipeline` running live on [http://localhost:8080](http://localhost:8080):
+This is the **actual Jenkins Stage View** from the live execution of the `Zestora-DevOps-Pipeline` running on [http://localhost:8080](http://localhost:8080):
 
 ![Jenkins Pipeline Stage View — All 8 Stages Green](./jenkins-pipeline-stages.png)
 
-**What you're seeing:**
+**What you're seeing in the pipeline view:**
 | Element | Detail |
 |---|---|
-| 🟢 **Green checkmarks** | Every stage passed successfully |
-| **Stage 2 — Code Quality (2)** | Expanded to show 2 parallel sub-stages (Backend Unit Tests + Frontend Quality Check) |
-| **Post Actions** | Pipeline success message: `🎉 ZESTORA ENTERPRISE CI/CD PIPELINE SUCCEEDED! ALL 8 STAGES GREEN.` |
-| **Total Duration** | 7 minutes 32 seconds |
-| **Triggered by** | `admin` (manual trigger) |
+| 🟢 **Green checkmarks** | Every stage passed with 100% success rate |
+| **Stage 2 — Code Quality (2)** | Expanded parallel sub-stages (`Backend Unit Tests` + `Frontend Quality Check`) |
+| **DevSecOps & Scan** | Stage 3 (Trivy Filesystem Audit) + Stage 5 (Trivy Container Image Scan) |
+| **Infrastructure & Deploy** | Stage 7 (Terraform Infrastructure) + Stage 8 (EC2 Deploy & Smoke Test) |
+| **Post Actions** | Pipeline success verification: `🎉 ZESTORA ENTERPRISE CI/CD PIPELINE SUCCEEDED! ALL 8 STAGES GREEN.` |
 
 ---
 

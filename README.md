@@ -188,15 +188,17 @@ AWS_Project/
 
 ### Jenkins — 8-Stage Declarative Pipeline
 
+![Jenkins Pipeline Stage View — All 8 Stages Green](./jenkins-pipeline-stages.png)
+
 ```
 ✅ Stage 1: Checkout          — Clone from GitHub
-✅ Stage 2: Build Images      — Docker multi-stage build
-✅ Stage 3: Unit Tests        — Backend + Frontend tests
-✅ Stage 4: Trivy Scan        — Container vulnerability audit
-✅ Stage 5: Push to ECR       — Tag + push to AWS ECR
-✅ Stage 6: Deploy to EC2     — SSH + docker-compose up
-✅ Stage 7: Smoke Test        — Health endpoint check
-✅ Stage 8: Notify            — Pipeline completion status
+✅ Stage 2: Code Quality      — Parallel: Backend Unit Tests + Frontend Quality Check
+✅ Stage 3: Trivy Scan        — DevSecOps filesystem dependency audit
+✅ Stage 4: Docker Build      — Multi-stage image build (Frontend + Backend)
+✅ Stage 5: Container Scan    — Trivy container layer vulnerability check
+✅ Stage 6: Push to ECR       — Tag & push to AWS ECR
+✅ Stage 7: Terraform         — Terraform plan & infrastructure validation
+✅ Stage 8: Deploy & Verify   — Deploy to AWS EC2 + Automated smoke tests
 ```
 
 ### GitHub Actions — Continuous Delivery
