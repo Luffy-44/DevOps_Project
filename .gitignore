@@ -56,3 +56,8 @@ scripts/auto-destroy*
 scripts/cancel-auto-destroy*
 scripts/update-live-ec2.sh
 
+# Local AI Blueprint instructions
+instruction.json
+instructions.json
+
+
